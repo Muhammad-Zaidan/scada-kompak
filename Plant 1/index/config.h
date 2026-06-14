@@ -25,6 +25,9 @@
 #define TOPIC_PH                "wwtp/plant1/ph"
 #define TOPIC_LEVEL             "wwtp/plant1/level"
 #define TOPIC_VALVE             "wwtp/plant1/valve/state"
+#define TOPIC_ACID_STATE        "wwtp/plant1/dosing/acid/state"
+#define TOPIC_BASE_STATE        "wwtp/plant1/dosing/base/state"
+#define TOPIC_MIXER_STATE       "wwtp/plant1/mixer/state"
 #define TOPIC_ALERT             "wwtp/alert"
 
 // ─────────────────────────────────────────────────────────────
@@ -49,7 +52,7 @@
 #define ECHO_PIN                27
 #define RELAY_VALVE_PIN         25      // Outlet valve
 #define RELAY_PUMP_ACID_PIN     32      // Pompa asam HNO3 10%
-#define RELAY_PUMP_BASE_PIN     23      // Pompa basa KOH 10% (dipindah dari 33)
+#define RELAY_PUMP_BASE_PIN     33      // Pompa basa KOH 10%
 #define STIRRER_PWM_PIN         14      // BTS7960 RPWM
 #define STIRRER_EN_PIN          12      // BTS7960 R_EN + L_EN
 

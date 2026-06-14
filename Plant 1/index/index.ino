@@ -235,6 +235,7 @@ void setValve(bool open) {
   valveState = open;
   open ? relayOn(RELAY_VALVE_PIN) : relayOff(RELAY_VALVE_PIN);
   Serial.printf("[VALVE] ══► %s\n", open ? "BUKA ✓" : "TUTUP ✓");
+  publishOrBuffer(TOPIC_VALVE, buildValveJson(valveState));
 }
 
 void setPumpAcid(bool on) {
@@ -242,6 +243,7 @@ void setPumpAcid(bool on) {
   dosingAcidActive = on;
   on ? relayOn(RELAY_PUMP_ACID_PIN) : relayOff(RELAY_PUMP_ACID_PIN);
   Serial.printf("[PUMP-ACID/HNO3] ══► %s\n", on ? "ON ✓" : "OFF ✓");
+  publishOrBuffer(TOPIC_ACID_STATE, buildActuatorJson(dosingAcidActive));
 }
 
 void setPumpBase(bool on) {
@@ -249,6 +251,7 @@ void setPumpBase(bool on) {
   dosingBaseActive = on;
   on ? relayOn(RELAY_PUMP_BASE_PIN) : relayOff(RELAY_PUMP_BASE_PIN);
   Serial.printf("[PUMP-BASE/KOH]  ══► %s\n", on ? "ON ✓" : "OFF ✓");
+  publishOrBuffer(TOPIC_BASE_STATE, buildActuatorJson(dosingBaseActive));
 }
 
 void setStirrer(bool on) {
@@ -267,6 +270,7 @@ void setStirrer(bool on) {
     digitalWrite(STIRRER_EN_PIN, LOW);
     Serial.println("[STIRRER] ══► OFF ✓");
   }
+  publishOrBuffer(TOPIC_MIXER_STATE, buildActuatorJson(stirrerActive));
 }
 
 void stopAllActuators() {
@@ -309,6 +313,13 @@ String buildValveJson(bool state) {
   doc["plant_id"] = PLANT_ID;
   doc["device"]   = "outlet_valve";
   doc["state"]    = state ? "OPEN" : "CLOSED";
+  String out; serializeJson(doc, out); return out;
+}
+
+String buildActuatorJson(bool state) {
+  JsonDocument doc;
+  doc["plant_id"] = PLANT_ID;
+  doc["state"]    = state ? "ON" : "OFF";
   String out; serializeJson(doc, out); return out;
 }
 
@@ -569,6 +580,10 @@ void loop() {
     lastSendMs = now;
     publishOrBuffer(TOPIC_PH,    buildPHJson(ph, phSt));
     publishOrBuffer(TOPIC_LEVEL, buildLevelJson(dist, volL, pct, lvSt));
+    // Publish semua status aktuator saat periodic publish
     publishOrBuffer(TOPIC_VALVE, buildValveJson(valveState));
+    publishOrBuffer(TOPIC_ACID,  buildActuatorJson(dosingAcidActive));
+    publishOrBuffer(TOPIC_BASE,  buildActuatorJson(dosingBaseActive));
+    publishOrBuffer(TOPIC_MIXER, buildActuatorJson(stirrerActive));
   }
 }
