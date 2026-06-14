@@ -218,6 +218,8 @@ String levelStatus(float pct) {
 
 // =============================================================
 // BAGIAN 5: AKTUATOR — HIGH-Z RELAY
+// Metode: ON = OUTPUT + LOW, OFF = INPUT (High-Z / floating)
+// Sama persis dengan kode kalibrasi yang sudah terbukti benar
 // =============================================================
 void relayOn(int pin) {
   pinMode(pin, OUTPUT);
@@ -225,9 +227,8 @@ void relayOn(int pin) {
   Serial.printf("[RELAY] Pin %d → ON (OUTPUT LOW)\n", pin);
 }
 void relayOff(int pin) {
-  pinMode(pin, OUTPUT);
-  digitalWrite(pin, HIGH);
-  Serial.printf("[RELAY] Pin %d → OFF (OUTPUT HIGH)\n", pin);
+  pinMode(pin, INPUT);        // High-Z — relay module pull-up → OFF
+  Serial.printf("[RELAY] Pin %d → OFF (INPUT High-Z)\n", pin);
 }
 
 void setValve(bool open) {
@@ -482,12 +483,13 @@ void setup() {
   digitalWrite(STIRRER_EN_PIN, LOW);
   analogWrite(STIRRER_PWM_PIN, 0);
 
-  // Relay: Set HIGH (OFF) sebelum pinMode untuk mencegah glitch menyala saat booting
-  digitalWrite(RELAY_VALVE_PIN, HIGH);     pinMode(RELAY_VALVE_PIN, OUTPUT);
-  digitalWrite(RELAY_PUMP_ACID_PIN, HIGH); pinMode(RELAY_PUMP_ACID_PIN, OUTPUT);
-  digitalWrite(RELAY_PUMP_BASE_PIN, HIGH); pinMode(RELAY_PUMP_BASE_PIN, OUTPUT);
+  // Relay: Set INPUT (High-Z) — sama seperti kode kalibrasi
+  // Relay module punya pull-up sendiri → relay OFF saat pin floating
+  pinMode(RELAY_VALVE_PIN,     INPUT);
+  pinMode(RELAY_PUMP_ACID_PIN, INPUT);
+  pinMode(RELAY_PUMP_BASE_PIN, INPUT);
   valveState = dosingAcidActive = dosingBaseActive = false;
-  Serial.println("[SETUP] Semua relay → OFF (HIGH) ✓");
+  Serial.println("[SETUP] Semua relay → OFF (INPUT High-Z) ✓");
 
   // MQTT
   wifiClient.setInsecure();
