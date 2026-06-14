@@ -50,9 +50,9 @@
 #define PH_PIN                  34
 #define TRIG_PIN                26
 #define ECHO_PIN                27
-#define RELAY_VALVE_PIN         33      // Outlet valve
-#define RELAY_PUMP_ACID_PIN     32      // Pompa asam HNO3 10%
-#define RELAY_PUMP_BASE_PIN     25      // Pompa basa KOH 10%
+#define RELAY_VALVE_PIN         25      // Outlet valve (wiring.h: GPIO25)
+#define RELAY_PUMP_ACID_PIN     32      // Pompa asam HNO3 10% (wiring.h: GPIO32)
+#define RELAY_PUMP_BASE_PIN     23      // Pompa basa KOH 10% (wiring.h: GPIO23)
 #define STIRRER_PWM_PIN         14      // BTS7960 RPWM
 #define STIRRER_EN_PIN          12      // BTS7960 R_EN + L_EN
 
@@ -111,7 +111,7 @@ static const float VOL_TABLE[][2] = {
 // ─────────────────────────────────────────────────────────────
 // STIRRER — kecepatan rendah untuk simple mixing
 // ─────────────────────────────────────────────────────────────
-#define STIRRER_SPEED           15      // 0-255, putaran pelan
+#define STIRRER_SPEED           20      // 0-255, putaran pelan
 #define STIRRER_RAMP_STEP       1       // Naik 1 per langkah
 #define STIRRER_RAMP_DELAY_MS   30      // ms per langkah (~450ms total ramp)
 
