@@ -582,8 +582,8 @@ void loop() {
     publishOrBuffer(TOPIC_LEVEL, buildLevelJson(dist, volL, pct, lvSt));
     // Publish semua status aktuator saat periodic publish
     publishOrBuffer(TOPIC_VALVE, buildValveJson(valveState));
-    publishOrBuffer(TOPIC_ACID,  buildActuatorJson(dosingAcidActive));
-    publishOrBuffer(TOPIC_BASE,  buildActuatorJson(dosingBaseActive));
-    publishOrBuffer(TOPIC_MIXER, buildActuatorJson(stirrerActive));
+    publishOrBuffer(TOPIC_ACID_STATE,  buildActuatorJson(dosingAcidActive));
+    publishOrBuffer(TOPIC_BASE_STATE,  buildActuatorJson(dosingBaseActive));
+    publishOrBuffer(TOPIC_MIXER_STATE, buildActuatorJson(stirrerActive));
   }
 }
