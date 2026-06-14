@@ -1,7 +1,7 @@
 import React from 'react';
 import { Waves, Activity, Droplets } from 'lucide-react';
 
-const Plant2Card = ({ data }) => {
+const Plant2Card = ({ data, publishCommand }) => {
   const { levelPct, levelL, flowLPM, mainValve, fsValve } = data;
 
   return (
@@ -35,16 +35,30 @@ const Plant2Card = ({ data }) => {
           </div>
 
           <div className="actuator-list mt-4">
-            <div className="actuator-item">
+            <div className="actuator-item flex items-center justify-between">
               <span className="flex items-center gap-2 text-muted"><Droplets size={16}/> Main Valve</span>
-              <div className={`status-badge ${mainValve ? 'connected' : 'disconnected'}`}>
-                {mainValve ? 'OPEN' : 'CLOSED'}
+              <div className="flex items-center gap-2">
+                <div className={`status-badge ${mainValve ? 'connected' : 'disconnected'}`}>
+                  {mainValve ? 'OPEN' : 'CLOSED'}
+                </div>
+                <button 
+                  className="ctrl-btn" 
+                  onClick={() => publishCommand('wwtp/plant2/valve/main/cmd', { state: mainValve ? 'CLOSED' : 'OPEN' })}>
+                  Toggle
+                </button>
               </div>
             </div>
-            <div className="actuator-item">
+            <div className="actuator-item flex items-center justify-between">
               <span className="flex items-center gap-2 text-muted"><Activity size={16}/> Failsafe Valve</span>
-              <div className={`status-badge ${fsValve ? 'disconnected' : 'connected'}`}>
-                {fsValve ? 'OPEN (FAULT)' : 'CLOSED (SAFE)'}
+              <div className="flex items-center gap-2">
+                <div className={`status-badge ${fsValve ? 'disconnected' : 'connected'}`}>
+                  {fsValve ? 'OPEN (FAULT)' : 'CLOSED (SAFE)'}
+                </div>
+                <button 
+                  className="ctrl-btn" 
+                  onClick={() => publishCommand('wwtp/plant2/valve/failsafe/cmd', { state: fsValve ? 'CLOSED' : 'OPEN' })}>
+                  Toggle
+                </button>
               </div>
             </div>
           </div>

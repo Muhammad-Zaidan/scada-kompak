@@ -771,6 +771,20 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
     systemReady = true;
     Serial.println("[SYS] ✓ System READY — data P1 & P2 telah diterima");
   }
+
+  // Menerima perintah perubahan State dari Web Dashboard
+  if (t == "wwtp/mtu/cmd") {
+    if (doc.containsKey("state")) {
+      String st = doc["state"].as<String>();
+      if (st == "MONITORING") phCtrlState = pHState::MONITORING;
+      else if (st == "DOSE_PULSE") phCtrlState = pHState::DOSE_PULSE;
+      else if (st == "DOSE_DELAY") phCtrlState = pHState::DOSE_DELAY;
+      else if (st == "MIXING") phCtrlState = pHState::MIXING;
+      else if (st == "SETTLING") phCtrlState = pHState::SETTLING;
+      else if (st == "PH_OK") phCtrlState = pHState::PH_OK;
+      Serial.printf("[MTU] ⚠ State diganti secara manual via Web ke: %s\n", st.c_str());
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -845,7 +859,8 @@ void subscribeAllTopics() {
   mqtt.subscribe(T_P2_FLOW);
   mqtt.subscribe(T_P2_VALVE_MAIN_STATE);
   mqtt.subscribe(T_P2_VALVE_FS_STATE);
-  Serial.println("[MQTT] Subscribe: P1(ph,level,valve) | P2(level,flow,valve_main,valve_fs)");
+  mqtt.subscribe("wwtp/mtu/cmd");
+  Serial.println("[MQTT] Subscribe: P1(ph,level,valve) | P2(level,flow,valve_main,valve_fs) | MTU(cmd)");
 }
 
 // [FIX 5] connectMQTT() — versi setup(), TANPA while/delay agar tidak
