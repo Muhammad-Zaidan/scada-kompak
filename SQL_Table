@@ -1,0 +1,65 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.sensor_readings (
+  id bigint NOT NULL DEFAULT nextval('sensor_readings_id_seq'::regclass),
+  plant_id character varying NOT NULL,
+  sensor_type character varying NOT NULL,
+  value double precision NOT NULL,
+  unit character varying NOT NULL,
+  status character varying NOT NULL DEFAULT 'Normal'::character varying CHECK (status::text = ANY (ARRAY['Normal'::character varying, 'Warning'::character varying, 'Critical'::character varying, 'Fault'::character varying]::text[])),
+  is_manual boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sensor_readings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.level_readings (
+  id bigint NOT NULL DEFAULT nextval('level_readings_id_seq'::regclass),
+  plant_id text NOT NULL,
+  value_cm numeric,
+  value_pct numeric,
+  value_liter numeric,
+  unit text DEFAULT 'cm'::text,
+  status text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT level_readings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.valve_log (
+  id bigint NOT NULL DEFAULT nextval('valve_log_id_seq'::regclass),
+  plant_id text NOT NULL,
+  device text,
+  state text,
+  mode text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT valve_log_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.alert_log (
+  id bigint NOT NULL DEFAULT nextval('alert_log_id_seq'::regclass),
+  plant_id text,
+  code text,
+  message text,
+  valve text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT alert_log_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.flow_readings (
+  id bigint NOT NULL DEFAULT nextval('flow_readings_id_seq'::regclass),
+  plant_id text NOT NULL,
+  value numeric,
+  unit text DEFAULT 'L/min'::text,
+  status text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT flow_readings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.dosing_log (
+  id bigint NOT NULL DEFAULT nextval('dosing_log_id_seq'::regclass),
+  plant_id text NOT NULL,
+  status text,
+  cycle integer,
+  target_ml numeric,
+  delivered_ml numeric,
+  pump_base boolean,
+  pump_acid boolean,
+  stirrer boolean,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT dosing_log_pkey PRIMARY KEY (id)
+);
