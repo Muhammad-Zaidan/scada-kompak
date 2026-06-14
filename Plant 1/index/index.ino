@@ -482,10 +482,10 @@ void setup() {
   digitalWrite(STIRRER_EN_PIN, LOW);
   analogWrite(STIRRER_PWM_PIN, 0);
 
-  // Relay: Set ke OUTPUT dan secara eksplisit berikan HIGH (OFF untuk Active Low)
-  pinMode(RELAY_VALVE_PIN,     OUTPUT); digitalWrite(RELAY_VALVE_PIN, HIGH);
-  pinMode(RELAY_PUMP_ACID_PIN, OUTPUT); digitalWrite(RELAY_PUMP_ACID_PIN, HIGH);
-  pinMode(RELAY_PUMP_BASE_PIN, OUTPUT); digitalWrite(RELAY_PUMP_BASE_PIN, HIGH);
+  // Relay: Set HIGH (OFF) sebelum pinMode untuk mencegah glitch menyala saat booting
+  digitalWrite(RELAY_VALVE_PIN, HIGH);     pinMode(RELAY_VALVE_PIN, OUTPUT);
+  digitalWrite(RELAY_PUMP_ACID_PIN, HIGH); pinMode(RELAY_PUMP_ACID_PIN, OUTPUT);
+  digitalWrite(RELAY_PUMP_BASE_PIN, HIGH); pinMode(RELAY_PUMP_BASE_PIN, OUTPUT);
   valveState = dosingAcidActive = dosingBaseActive = false;
   Serial.println("[SETUP] Semua relay → OFF (HIGH) ✓");
 
