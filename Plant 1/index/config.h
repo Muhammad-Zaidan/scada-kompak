@@ -53,6 +53,8 @@
 #define RELAY_VALVE_PIN         23      // Outlet valve (dipindah ke pin sehat)
 #define RELAY_PUMP_ACID_PIN     32      // Pompa asam HNO3 10%
 #define RELAY_PUMP_BASE_PIN     25      // Pompa basa KOH 10%
+#define FLOW_ACID_PIN           18      // Flow sensor pompa asam
+#define FLOW_BASE_PIN           19      // Flow sensor pompa basa
 #define STIRRER_PWM_PIN         14      // BTS7960 RPWM
 #define STIRRER_EN_PIN          12      // BTS7960 R_EN + L_EN
 
@@ -103,15 +105,15 @@ static const float VOL_TABLE[][2] = {
 
 // ─────────────────────────────────────────────────────────────
 // DETEKSI STABILITAS LEVEL
-// Level dianggap stabil jika tidak berubah > 0.05L selama 1 menit
+// Level dianggap stabil jika volume tidak berubah > 0.157L (setara dengan 0.5 cm) selama 1 menit
 // ─────────────────────────────────────────────────────────────
-#define LEVEL_STABLE_DELTA_L    0.05f   // Perubahan volume (L) dianggap naik
+#define LEVEL_STABLE_DELTA_L    0.157f  // Perubahan volume (L) dianggap naik (ditoleransi jitter sensor)
 #define LEVEL_STABLE_MS         60000   // 1 menit — sesuai permintaan
 
 // ─────────────────────────────────────────────────────────────
 // STIRRER — kecepatan rendah untuk simple mixing
 // ─────────────────────────────────────────────────────────────
-#define STIRRER_SPEED           20      // 0-255, putaran pelan
+#define STIRRER_SPEED           25      // 0-255, putaran pelan
 #define STIRRER_RAMP_STEP       1       // Naik 1 per langkah
 #define STIRRER_RAMP_DELAY_MS   30      // ms per langkah (~450ms total ramp)
 

@@ -31,6 +31,16 @@ bool dosingAcidActive = false;
 bool stirrerActive    = false;
 
 // ─────────────────────────────────────────────────────────────
+// STATE DOSING PULSE
+// ─────────────────────────────────────────────────────────────
+volatile unsigned long flowAcidCount = 0;
+volatile unsigned long flowBaseCount = 0;
+unsigned long targetAcidPulse = 0;
+unsigned long targetBasePulse = 0;
+
+void IRAM_ATTR isrFlowAcid() { flowAcidCount++; }
+void IRAM_ATTR isrFlowBase() { flowBaseCount++; }
+// ─────────────────────────────────────────────────────────────
 // STATE LEVEL STABILITY
 // ─────────────────────────────────────────────────────────────
 float         volPrev      = -999.0f;
@@ -389,7 +399,19 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
   // ── Perintah pompa asam dari MTU ──────────────────────────
   if (t == TOPIC_ACID_CMD) {
     bool on = (doc["cmd"].as<String>() == "ON");
-    Serial.printf("[CMD] Pompa Asam → %s\n", on ? "ON" : "OFF");
+    if (on) {
+      if (doc.containsKey("target_pulse")) {
+        targetAcidPulse = doc["target_pulse"].as<unsigned long>();
+        flowAcidCount = 0; // Reset counter
+        Serial.printf("[CMD] Pompa Asam → ON (Target: %lu pulsa)\n", targetAcidPulse);
+      } else {
+        targetAcidPulse = 0; // Mode manual (tanpa auto-stop)
+        Serial.println("[CMD] Pompa Asam → ON (Manual)");
+      }
+    } else {
+      Serial.println("[CMD] Pompa Asam → OFF");
+      targetAcidPulse = 0;
+    }
     setPumpAcid(on);
     return;
   }
@@ -397,7 +419,19 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
   // ── Perintah pompa basa dari MTU ──────────────────────────
   if (t == TOPIC_BASE_CMD) {
     bool on = (doc["cmd"].as<String>() == "ON");
-    Serial.printf("[CMD] Pompa Basa → %s\n", on ? "ON" : "OFF");
+    if (on) {
+      if (doc.containsKey("target_pulse")) {
+        targetBasePulse = doc["target_pulse"].as<unsigned long>();
+        flowBaseCount = 0; // Reset counter
+        Serial.printf("[CMD] Pompa Basa → ON (Target: %lu pulsa)\n", targetBasePulse);
+      } else {
+        targetBasePulse = 0; // Mode manual (tanpa auto-stop)
+        Serial.println("[CMD] Pompa Basa → ON (Manual)");
+      }
+    } else {
+      Serial.println("[CMD] Pompa Basa → OFF");
+      targetBasePulse = 0;
+    }
     setPumpBase(on);
     return;
   }
@@ -483,6 +517,11 @@ void setup() {
   digitalWrite(STIRRER_EN_PIN, LOW);
   analogWrite(STIRRER_PWM_PIN, 0);
 
+  pinMode(FLOW_ACID_PIN, INPUT_PULLUP);
+  pinMode(FLOW_BASE_PIN, INPUT_PULLUP);
+  attachInterrupt(FLOW_ACID_PIN, isrFlowAcid, RISING);
+  attachInterrupt(FLOW_BASE_PIN, isrFlowBase, RISING);
+
   // Relay: Set INPUT (High-Z) — sama seperti kode kalibrasi
   // Relay module punya pull-up sendiri → relay OFF saat pin floating
   pinMode(RELAY_VALVE_PIN,     INPUT);
@@ -514,6 +553,23 @@ void loop() {
     connectMQTT();
   }
   mqtt.loop();
+
+  // --- AUTO-STOP LOGIC UNTUK DOSING PULSA ---
+  if (targetAcidPulse > 0 && dosingAcidActive) {
+    if (flowAcidCount >= targetAcidPulse) {
+      Serial.printf("\n[ASAM] DONE! Target %lu pulsa tercapai. Mematikan pompa.\n", targetAcidPulse);
+      setPumpAcid(false);
+      targetAcidPulse = 0;
+    }
+  }
+
+  if (targetBasePulse > 0 && dosingBaseActive) {
+    if (flowBaseCount >= targetBasePulse) {
+      Serial.printf("\n[BASA] DONE! Target %lu pulsa tercapai. Mematikan pompa.\n", targetBasePulse);
+      setPumpBase(false);
+      targetBasePulse = 0;
+    }
+  }
 
   unsigned long now = millis();
   if (now - lastSampleMs < SAMPLING_MS) return;

@@ -105,15 +105,17 @@
 #define PH_DOSE_ACID_STOP       7.05f   // Stop dosing asam jika pH <= ini
 
 // ─────────────────────────────────────────────────────────────
-// TIMING DOSING pH (dijalankan di MTU)
+// PARAMETER DOSING PROPORSIONAL PULSA (dijalankan di MTU)
 //
 // Alur: DOSE_PULSE → DOSE_DELAY → MIXING → SETTLING → cek pH
 // ─────────────────────────────────────────────────────────────
-#define DOSE_PULSE_MS           3000UL  // Durasi pompa menyala per pulsa (3 detik)
+#define PULSE_PER_ML            4.63f   // Dari kalibrasi: 500 pulsa = 108 mL
+#define KP_DOSING_ML_PER_PH     5.0f    // Dosis mL cairan untuk setiap 1.0 selisih pH (set konservatif)
+#define DOSE_PULSE_MAX_MS       15000UL // Timeout maksimal pompa nyala per siklus (jaga-jaga pulsa macet)
 #define DOSE_TO_MIXER_MS        2000UL  // Delay setelah pompa mati sebelum mixer nyala
-#define MIXER_RUN_MS            10000UL // Durasi mixer mengaduk (10 detik)
-#define SETTLE_MS               15000UL // Durasi settling setelah mixer mati (15 detik)
-#define MAX_DOSE_CYCLES         5       // Maksimum siklus dosing per batch
+#define MIXER_RUN_MS            30000UL // Durasi mixer mengaduk (30 detik)
+#define SETTLE_MS               300000UL// Durasi settling setelah mixer mati (5 menit = 300.000 ms)
+#define MAX_DOSE_CYCLES         10      // Maksimum siklus dosing per batch (dinaikkan karena dosis dicicil)
 
 // ─────────────────────────────────────────────────────────────
 // VOLUME Plant 1 (untuk kalkulasi logika)

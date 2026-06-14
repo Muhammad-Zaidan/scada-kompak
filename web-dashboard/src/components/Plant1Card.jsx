@@ -1,8 +1,70 @@
 import React from 'react';
-import { Beaker, Droplets, Settings, Zap } from 'lucide-react';
+import { Beaker, Droplets, Settings, Zap, Info } from 'lucide-react';
+
+// Threshold dari Master config.h — harus sinkron
+const PH_SAFE_MIN = 6.8;
+const PH_SAFE_MAX = 7.2;
+const PH_FAULT_LOW = 5.5;
+const PH_FAULT_HIGH = 9.5;
+const MIN_DOSING_PCT = 80;
+
+function getStateReason(state, ph, levelPct, acidOn, baseOn, mixerOn) {
+  switch (state) {
+    case 'MONITORING':
+      if (levelPct < MIN_DOSING_PCT)
+        return `Level terlalu rendah (${levelPct.toFixed(1)}% < ${MIN_DOSING_PCT}%) — dosing ditunda`;
+      if (ph < PH_FAULT_LOW || ph > PH_FAULT_HIGH)
+        return `pH ekstrem (${ph.toFixed(2)}) — menunggu evaluasi fault`;
+      if (ph >= PH_SAFE_MIN && ph <= PH_SAFE_MAX)
+        return `Menunggu level stabil selama 1 menit (pH=${ph.toFixed(2)}, level=${levelPct.toFixed(1)}%)`;
+      if (ph < PH_SAFE_MIN)
+        return `pH=${ph.toFixed(2)} < ${PH_SAFE_MIN} (asam) — menunggu level stabil untuk dosing basa`;
+      if (ph > PH_SAFE_MAX)
+        return `pH=${ph.toFixed(2)} > ${PH_SAFE_MAX} (basa) — menunggu level stabil untuk dosing asam`;
+      return `Memantau pH=${ph.toFixed(2)}, level=${levelPct.toFixed(1)}%`;
+
+    case 'DOSE_PULSE':
+      if (baseOn) return `Pompa BASA menyala — pH=${ph.toFixed(2)} terlalu asam`;
+      if (acidOn) return `Pompa ASAM menyala — pH=${ph.toFixed(2)} terlalu basa`;
+      return `Dosing pulse aktif — pH=${ph.toFixed(2)}`;
+
+    case 'DOSE_DELAY':
+      return `Delay sebelum mixer menyala — menunggu larutan tersebar`;
+
+    case 'MIXING':
+      return `Mixer ON — mengaduk larutan agar pH homogen`;
+
+    case 'SETTLING':
+      return `Settling — menunggu pH stabil setelah mixing (pH=${ph.toFixed(2)})`;
+
+    case 'PH_OK':
+      return `pH dalam range aman: ${ph.toFixed(2)} (${PH_SAFE_MIN}–${PH_SAFE_MAX})`;
+
+    case 'PH_FAULT':
+      return `FAULT — pH=${ph.toFixed(2)} di luar batas atau max siklus dosing tercapai`;
+
+    default:
+      return `State: ${state}`;
+  }
+}
+
+function getStateColor(state) {
+  switch (state) {
+    case 'PH_OK': return '#22c55e';
+    case 'MONITORING': return '#3b82f6';
+    case 'DOSE_PULSE': return '#f59e0b';
+    case 'DOSE_DELAY': return '#f59e0b';
+    case 'MIXING': return '#8b5cf6';
+    case 'SETTLING': return '#06b6d4';
+    case 'PH_FAULT': return '#ef4444';
+    default: return '#94a3b8';
+  }
+}
 
 const Plant1Card = ({ data, mtuState, publishCommand }) => {
   const { ph, levelPct, levelL, valveOpen, mixerOpen, acidOpen, baseOpen } = data;
+  const reason = getStateReason(mtuState, ph || 0, levelPct || 0, acidOpen, baseOpen, mixerOpen);
+  const stateColor = getStateColor(mtuState);
 
   return (
     <div className="glass-panel">
@@ -24,6 +86,23 @@ const Plant1Card = ({ data, mtuState, publishCommand }) => {
             <option value="PH_OK">PH_OK</option>
           </select>
         </div>
+      </div>
+
+      {/* State Reason Banner */}
+      <div className="state-reason" style={{
+        marginTop: '0.75rem',
+        padding: '0.5rem 0.75rem',
+        borderRadius: '8px',
+        background: `${stateColor}15`,
+        borderLeft: `3px solid ${stateColor}`,
+        fontSize: '0.82rem',
+        color: '#e2e8f0',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '0.5rem'
+      }}>
+        <Info size={14} style={{ color: stateColor, marginTop: '2px', flexShrink: 0 }} />
+        <span>{reason}</span>
       </div>
       
       <div className="flex gap-6 mt-6">

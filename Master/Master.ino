@@ -246,12 +246,15 @@ void setFloatReg(uint16_t startAddr, float value) {
 // RTU yang reconnect langsung dapat perintah terakhir tanpa
 // menunggu perubahan state baru dari MTU.
 // ─────────────────────────────────────────────────────────────
-void sendActuatorCmd(const char* topic, bool on, bool& stateTracker) {
-  if (stateTracker == on) return;
+void sendActuatorCmd(const char* topic, bool on, bool& stateTracker, unsigned long target_pulse = 0) {
+  if (stateTracker == on && target_pulse == 0) return; // Allow re-sending if there's a new pulse target
   stateTracker = on;
   JsonDocument doc;
   doc["cmd"] = on ? "ON" : "OFF";
-  char buf[64];
+  if (on && target_pulse > 0) {
+    doc["target_pulse"] = target_pulse;
+  }
+  char buf[96];
   serializeJson(doc, buf);
   mqtt.publish(topic, buf, true);   // retain=true
   Serial.printf("[CMD→][R] %s : %s\n", topic, buf);
@@ -273,8 +276,8 @@ void sendValveCmd(const char* topic, bool open, bool& stateTracker) {
 // WRAPPER KONTROL AKTUATOR
 // ─────────────────────────────────────────────────────────────
 void setP1Valve(bool open)     { sendValveCmd(T_P1_VALVE_CMD,          open, cmdP1ValveOpen);     }
-void setP1AcidPump(bool on)    { sendActuatorCmd(T_P1_DOSING_ACID_CMD, on,   cmdP1AcidPumpOn);    }
-void setP1BasePump(bool on)    { sendActuatorCmd(T_P1_DOSING_BASE_CMD, on,   cmdP1BasePumpOn);    }
+void setP1AcidPump(bool on, unsigned long pulse=0) { sendActuatorCmd(T_P1_DOSING_ACID_CMD, on, cmdP1AcidPumpOn, pulse); }
+void setP1BasePump(bool on, unsigned long pulse=0) { sendActuatorCmd(T_P1_DOSING_BASE_CMD, on, cmdP1BasePumpOn, pulse); }
 void setP1Mixer(bool on)       { sendActuatorCmd(T_P1_MIXER_CMD,       on,   cmdP1MixerOn);       }
 void setP2ValveMain(bool open) { sendValveCmd(T_P2_MAIN_CMD,           open, cmdP2ValveMainOpen); }
 void setP2ValveFs(bool open)   { sendValveCmd(T_P2_FS_CMD,             open, cmdP2ValveFsOpen);   }
@@ -322,6 +325,19 @@ void publishDosingState(const char* statusStr) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// KALKULASI DOSIS PROPORSIONAL PULSA
+// ─────────────────────────────────────────────────────────────
+unsigned long currentTargetPulse = 0; // Menyimpan pulsa yang sedang dikirim
+
+unsigned long calcDosePulse(float currentPh) {
+  float error = fabs(currentPh - 7.0f); // Selisih absolut ke netral
+  float doseMl = error * KP_DOSING_ML_PER_PH;
+  unsigned long pulses = (unsigned long)(doseMl * PULSE_PER_ML);
+  if (pulses < 1) pulses = 1; // Minimal tembak 1 pulsa
+  return pulses;
+}
+
+// ─────────────────────────────────────────────────────────────
 // STATE MACHINE pH Plant 1 (non-blocking, millis-based)
 // ─────────────────────────────────────────────────────────────
 void runPhStateMachine() {
@@ -364,24 +380,26 @@ void runPhStateMachine() {
         dosingBase   = true;
         doseCycles   = 1;
         setP1Valve(false);
-        setP1BasePump(true);
+        currentTargetPulse = calcDosePulse(ph);
+        setP1BasePump(true, currentTargetPulse);
         stateStartMs = now;
         phCtrlState  = pHState::DOSE_PULSE;
         publishDosingState("DOSING_BASE");
-        Serial.printf("[pH-SM] pH=%.2f < %.1f → DOSE_PULSE [BASE] #1\n",
-                      ph, PH_SAFE_MIN);
+        Serial.printf("[pH-SM] pH=%.2f < %.1f → DOSE_PULSE [BASE] #1 (%lu pulsa)\n",
+                      ph, PH_SAFE_MIN, currentTargetPulse);
         break;
       }
       if (ph > PH_SAFE_MAX) {
         dosingBase   = false;
         doseCycles   = 1;
         setP1Valve(false);
-        setP1AcidPump(true);
+        currentTargetPulse = calcDosePulse(ph);
+        setP1AcidPump(true, currentTargetPulse);
         stateStartMs = now;
         phCtrlState  = pHState::DOSE_PULSE;
         publishDosingState("DOSING_ACID");
-        Serial.printf("[pH-SM] pH=%.2f > %.1f → DOSE_PULSE [ACID] #1\n",
-                      ph, PH_SAFE_MAX);
+        Serial.printf("[pH-SM] pH=%.2f > %.1f → DOSE_PULSE [ACID] #1 (%lu pulsa)\n",
+                      ph, PH_SAFE_MAX, currentTargetPulse);
         break;
       }
       phCtrlState = pHState::PH_OK;
@@ -389,13 +407,13 @@ void runPhStateMachine() {
     }
 
     case pHState::DOSE_PULSE: {
-      if (now - stateStartMs >= DOSE_PULSE_MS) {
+      if (now - stateStartMs >= DOSE_PULSE_MAX_MS) {
         if (dosingBase) setP1BasePump(false);
         else            setP1AcidPump(false);
         doseCycles++;
         stateStartMs = now;
         phCtrlState  = pHState::DOSE_DELAY;
-        Serial.printf("[pH-SM] Pulsa #%d selesai → DOSE_DELAY\n", doseCycles);
+        Serial.printf("[pH-SM] Timeout pulsa %lu ms tercapai → DOSE_DELAY\n", DOSE_PULSE_MAX_MS);
       }
       break;
     }
@@ -441,12 +459,15 @@ void runPhStateMachine() {
           Serial.println("[pH-SM] ✗ Max siklus dosing → PH_FAULT");
           break;
         }
-        if (dosingBase) setP1BasePump(true);
-        else            setP1AcidPump(true);
+        
+        currentTargetPulse = calcDosePulse(ph);
+        if (dosingBase) setP1BasePump(true, currentTargetPulse);
+        else            setP1AcidPump(true, currentTargetPulse);
+        
         stateStartMs = now;
         phCtrlState  = pHState::DOSE_PULSE;
-        Serial.printf("[pH-SM] Belum tercapai → DOSE_PULSE #%d\n",
-                      doseCycles + 1);
+        Serial.printf("[pH-SM] Belum tercapai → DOSE_PULSE #%d (%lu pulsa)\n",
+                      doseCycles + 1, currentTargetPulse);
       }
       break;
     }
