@@ -1212,27 +1212,6 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_test",
-        "type": "mqtt in",
-        "z": "7ec7738dc8078a6d",
-        "name": "Subscribe wwtp/test",
-        "topic": "wwtp/test",
-        "qos": "1",
-        "datatype": "auto",
-        "broker": "7f9f94c67c1a0679",
-        "nl": false,
-        "rap": false,
-        "rh": 0,
-        "inputs": 0,
-        "x": 130,
-        "y": 60,
-        "wires": [
-            [
-                "json_parse_test"
-            ]
-        ]
-    },
-    {
         "id": "json_parse_test",
         "type": "json",
         "z": "7ec7738dc8078a6d",

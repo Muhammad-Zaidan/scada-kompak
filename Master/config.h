@@ -20,7 +20,7 @@
 // ─────────────────────────────────────────────────────────────
 // MQTT BROKER
 // ─────────────────────────────────────────────────────────────
-#define MQTT_BROKER             "704e8cb56cf1497ca1ff0e371b9415ff.s1.eu.hivemq.cloud"
+#define MQTT_BROKER             "1181cbf946a740f4b5a02a311e1d483e.s1.eu.hivemq.cloud"
 #define MQTT_PORT               8883
 #define MQTT_USER               "kompak"
 #define MQTT_PASS               "Kompak2026"
@@ -148,7 +148,7 @@
 // ─────────────────────────────────────────────────────────────
 // TIMING SISTEM
 // ─────────────────────────────────────────────────────────────
-#define DATA_TIMEOUT_MS         10000UL
+#define DATA_TIMEOUT_MS         45000UL
 #define ALARM_FLIP_MS           500UL
 #define WIFI_RECONNECT_MS       10000UL
 #define MQTT_RECONNECT_MS       5000UL

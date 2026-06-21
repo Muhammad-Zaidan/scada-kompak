@@ -5,7 +5,7 @@ import Plant1Card from './components/Plant1Card';
 import Plant2Card from './components/Plant2Card';
 import AlertLog from './components/AlertLog';
 
-const BROKER_URL = 'wss://704e8cb56cf1497ca1ff0e371b9415ff.s1.eu.hivemq.cloud:8884/mqtt';
+const BROKER_URL = 'wss://1181cbf946a740f4b5a02a311e1d483e.s1.eu.hivemq.cloud:8884/mqtt';
 const OPTIONS = {
   username: 'kompak',
   password: 'Kompak2026',

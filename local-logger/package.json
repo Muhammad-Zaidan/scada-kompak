@@ -1,0 +1,13 @@
+{
+  "name": "wwtp-local-logger",
+  "version": "1.0.0",
+  "description": "Local SQLite logger for WWTP SCADA — subscribes to MQTT and saves data locally",
+  "main": "logger.js",
+  "scripts": {
+    "start": "node logger.js"
+  },
+  "dependencies": {
+    "mqtt": "^5.15.1",
+    "sql.js": "^1.11.0"
+  }
+}
