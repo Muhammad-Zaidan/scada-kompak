@@ -514,13 +514,12 @@ void runPhStateMachine() {
       if (now - stateStartMs >= SETTLE_MS) {
         Serial.printf("[pH-SM] Settling selesai. pH=%.2f siklus %d/%d\n",
                       ph, doseCycles, MAX_DOSE_CYCLES);
-        bool targetOK = dosingBase ?
-          (ph >= PH_DOSE_BASE_STOP) :
-          (ph <= PH_DOSE_ACID_STOP);
-        if (targetOK) {
+        // Jika pH sudah di dalam zona aman (6.8–7.2), langsung selesai
+        if (ph >= PH_SAFE_MIN && ph <= PH_SAFE_MAX) {
           phCtrlState = pHState::PH_OK;
           doseCycles  = 0;
-          Serial.println("[pH-SM] ✓ Target hysteresis tercapai → PH_OK");
+          Serial.printf("[pH-SM] ✓ pH=%.2f dalam zona aman (%.1f–%.1f) → PH_OK\n",
+                        ph, PH_SAFE_MIN, PH_SAFE_MAX);
           break;
         }
         if (doseCycles >= MAX_DOSE_CYCLES) {

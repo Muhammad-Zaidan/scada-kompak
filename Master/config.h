@@ -100,9 +100,10 @@
 #define PH_FAULT_HIGH           8.5f    // Fault ekstrem atas → PH_FAULT
 
 // Hysteresis stop — berhenti dosing di titik ini (bukan tepat 7.0)
-// untuk menghindari overshoot
-#define PH_DOSE_BASE_STOP       6.95f   // Stop dosing basa jika pH >= ini
-#define PH_DOSE_ACID_STOP       7.05f   // Stop dosing asam jika pH <= ini
+// Diatur agar dosing berhenti begitu pH MASUK zona aman, bukan mengejar 7.0
+// Ini menghemat cairan dosing secara signifikan.
+#define PH_DOSE_BASE_STOP       6.85f   // Stop dosing basa jika pH >= ini (cukup masuk zona aman)
+#define PH_DOSE_ACID_STOP       7.15f   // Stop dosing asam jika pH <= ini (cukup masuk zona aman)
 
 // ─────────────────────────────────────────────────────────────
 // PARAMETER DOSING PROPORSIONAL PULSA (dijalankan di MTU)
@@ -110,7 +111,7 @@
 // Alur: DOSE_PULSE → DOSE_DELAY → MIXING → SETTLING → cek pH
 // ─────────────────────────────────────────────────────────────
 #define PULSE_PER_ML            4.63f   // Dari kalibrasi: 500 pulsa = 108 mL
-#define KP_DOSING_ML_PER_PH     5.0f    // Dosis mL cairan untuk setiap 1.0 selisih pH (set konservatif)
+#define KP_DOSING_ML_PER_PH     10.0f   // Dosis mL cairan per 1.0 selisih pH (dinaikkan dari 5.0 agar lebih efektif)
 #define DOSE_PULSE_MAX_MS       15000UL // Timeout maksimal pompa nyala per siklus (jaga-jaga pulsa macet)
 #define DOSE_TO_MIXER_MS        2000UL  // Delay setelah pompa mati sebelum mixer nyala
 #define MIXER_RUN_MS            30000UL // Durasi mixer mengaduk (30 detik)
