@@ -33,6 +33,7 @@ ModbusIP         modbus;
 // ─────────────────────────────────────────────────────────────
 const char* pHStateStr(pHState s) {
   switch (s) {
+    case pHState::INITIAL_WAIT: return "INITIAL_WAIT";
     case pHState::MONITORING: return "MONITORING";
     case pHState::DOSE_PULSE: return "DOSE_PULSE";
     case pHState::DOSE_DELAY: return "DOSE_DELAY";
@@ -76,19 +77,19 @@ struct Plant2Data {
 // ─────────────────────────────────────────────────────────────
 // STATE AKTUATOR — tracking perintah terakhir ke RTU
 // ─────────────────────────────────────────────────────────────
-bool cmdP1ValveOpen     = false;
-bool cmdP1AcidPumpOn    = false;
-bool cmdP1BasePumpOn    = false;
-bool cmdP1MixerOn       = false;
+bool cmdP1ValveOpen      = false;
+bool cmdP1AcidPumpOn     = false;
+bool cmdP1BasePumpOn     = false;
+bool cmdP1MixerOn        = false;
 bool cmdP2ValveMainOpen = false;
 bool cmdP2ValveFsOpen   = false;
 
 // ─────────────────────────────────────────────────────────────
 // STATE MACHINE & ALARM VARIABLES
 // ─────────────────────────────────────────────────────────────
-pHState       phCtrlState  = pHState::MONITORING;
-bool          dosingBase   = false;
-int           doseCycles   = 0;
+pHState        phCtrlState  = pHState::INITIAL_WAIT;
+bool           dosingBase   = false;
+int            doseCycles   = 0;
 unsigned long stateStartMs = 0;
 
 Alarm alarmPH;
@@ -122,8 +123,55 @@ bool           needFlush = false; // disetel true saat WiFi baru reconnect
 
 unsigned long lastSnapshotMs = 0; // timestamp snapshot terakhir
 
+void buzzer() {
+  static bool buzzerInitialized = false;
+  if (!buzzerInitialized) {
+    pinMode(25, OUTPUT);    
+    digitalWrite(25, LOW);
+    buzzerInitialized = true;
+  }
+
+  // Indikator apakah data dari RTU benar-benar hilang/kabel dicabut
+  bool kabelPutusP1 = false;
+  bool kabelPutusP2 = false;
+
+  // 1. Validasi Plant 1 (Hanya cek jika systemReady sudah aktif setelah koneksi awal sukses)
+  if (systemReady) {
+    // Jika data tidak fresh (stale) ATAU nilainya anjlok di bawah batas operasional (di bawah 10%, mendekati 0)
+    if (!isP1DataFresh() || p1.levelLogPct < 0.5f) {
+      kabelPutusP1 = true;
+    }
+  }
+
+  // 2. Validasi Plant 2
+  if (systemReady) {
+    // Jika data tidak fresh (stale) ATAU nilainya anjlok di bawah batas operasional (di bawah 10%, mendekati 0)
+    if (!isP2DataFresh() || p2.levelLogPct < 0.5f) {
+      kabelPutusP2 = true;
+    }
+  }
+
+  // 3. Eksekusi Buzzer GPIO 25
+  if (systemReady && (kabelPutusP1 || kabelPutusP2)) {
+    digitalWrite(25, HIGH); // BUNYI (Murni karena hardware fault / kabel dicabut)
+  } else {
+    digitalWrite(25, LOW);  // MATI (Normal operasional, karena level selalu >= 10%)
+  }
+}
+void failsafePompa() {
+  if (phCtrlState == pHState::DOSE_DELAY || 
+      phCtrlState == pHState::MIXING     || 
+      phCtrlState == pHState::SETTLING) {
+    if (cmdP1AcidPumpOn) cmdP1AcidPumpOn = false;
+    if (cmdP1BasePumpOn) cmdP1BasePumpOn = false;
+  }
+}
+
 // Simpan satu snapshot ke ring buffer
 void pushSnapshot() {
+  buzzer();
+  failsafePompa();
+
   SensorSnapshot s;
   s.capturedMs  = millis();
   s.ph          = p1.ph;
@@ -219,9 +267,17 @@ float toLogicalPct(float liter, float maxOpL) {
 // ─────────────────────────────────────────────────────────────
 bool isP1DataFresh() {
   unsigned long now = millis();
+  bool actuatorOn = (cmdP1AcidPumpOn || cmdP1BasePumpOn || cmdP1MixerOn || cmdP1ValveOpen);
+  unsigned long timeout = actuatorOn ? 60000UL : DATA_TIMEOUT_MS;
+  
+  if (cmdP1ValveOpen) {
+    // Saat kuras, sensor pH menggantung di udara. Hiraukan validitas & timeout pH!
+    return p1.levelValid && (now - p1.lastLevelMs < timeout);
+  }
+
   return p1.phValid && p1.levelValid &&
-         (now - p1.lastPhMs    < DATA_TIMEOUT_MS) &&
-         (now - p1.lastLevelMs < DATA_TIMEOUT_MS);
+         (now - p1.lastPhMs    < timeout) &&
+         (now - p1.lastLevelMs < timeout);
 }
 
 bool isP2DataFresh() {
@@ -247,7 +303,7 @@ void setFloatReg(uint16_t startAddr, float value) {
 // menunggu perubahan state baru dari MTU.
 // ─────────────────────────────────────────────────────────────
 void sendActuatorCmd(const char* topic, bool on, bool& stateTracker, unsigned long target_pulse = 0) {
-  if (stateTracker == on && target_pulse == 0) return; // Allow re-sending if there's a new pulse target
+  if (stateTracker == on && target_pulse == 0) return; // Mengizinkan pengiriman ulang jika ada pulsa baru
   stateTracker = on;
   JsonDocument doc;
   doc["cmd"] = on ? "ON" : "OFF";
@@ -256,8 +312,8 @@ void sendActuatorCmd(const char* topic, bool on, bool& stateTracker, unsigned lo
   }
   char buf[96];
   serializeJson(doc, buf);
-  mqtt.publish(topic, buf, true);   // retain=true
-  Serial.printf("[CMD→][R] %s : %s\n", topic, buf);
+  mqtt.publish(topic, buf, false);   // retain=false (hindari command hantu)
+  Serial.printf("[CMD→] %s : %s\n", topic, buf);
 }
 
 void sendValveCmd(const char* topic, bool open, bool& stateTracker) {
@@ -268,8 +324,8 @@ void sendValveCmd(const char* topic, bool open, bool& stateTracker) {
   doc["mode"]  = "AUTO";
   char buf[96];
   serializeJson(doc, buf);
-  mqtt.publish(topic, buf, true);   // retain=true
-  Serial.printf("[CMD→][R] %s : %s\n", topic, buf);
+  mqtt.publish(topic, buf, false);   // retain=false
+  Serial.printf("[CMD→] %s : %s\n", topic, buf);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -298,7 +354,6 @@ void resetActuatorTrackers() {
   cmdP1MixerOn       = !cmdP1MixerOn;
   cmdP2ValveMainOpen = !cmdP2ValveMainOpen;
   cmdP2ValveFsOpen   = !cmdP2ValveFsOpen;
-  // Nilai tracker akan dikoreksi kembali pada siklus kontrol berikutnya
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -310,8 +365,6 @@ void publishDosingState(const char* statusStr) {
   doc["plant_id"]     = "mtu";
   doc["status"]       = statusStr;
   doc["cycle"]        = doseCycles;
-  // target_ml and delivered_ml are not tracked anymore (power law removed)
-  // We can just log pump states
   doc["target_ml"]    = 0;
   doc["delivered_ml"] = 0;
   doc["pump_base"]    = cmdP1BasePumpOn;
@@ -327,13 +380,13 @@ void publishDosingState(const char* statusStr) {
 // ─────────────────────────────────────────────────────────────
 // KALKULASI DOSIS PROPORSIONAL PULSA
 // ─────────────────────────────────────────────────────────────
-unsigned long currentTargetPulse = 0; // Menyimpan pulsa yang sedang dikirim
+unsigned long currentTargetPulse = 0; 
 
 unsigned long calcDosePulse(float currentPh) {
-  float error = fabs(currentPh - 7.0f); // Selisih absolut ke netral
+  float error = fabs(currentPh - 7.0f); 
   float doseMl = error * KP_DOSING_ML_PER_PH;
   unsigned long pulses = (unsigned long)(doseMl * PULSE_PER_ML);
-  if (pulses < 1) pulses = 1; // Minimal tembak 1 pulsa
+  if (pulses < 1) pulses = 1; 
   return pulses;
 }
 
@@ -346,27 +399,41 @@ void runPhStateMachine() {
 
   switch (phCtrlState) {
 
-    case pHState::MONITORING: {
-      // Cek fault pH ekstrem — prioritas tertinggi
-      if (ph < PH_FAULT_LOW || ph > PH_FAULT_HIGH) {
-        stopAllDosing();
-        setP1Valve(false);
-        phCtrlState = pHState::PH_FAULT;
-        publishDosingState("PH_FAULT");
-        Serial.printf("[pH-SM] ⚠ FAULT ekstrem — pH=%.2f\n", ph);
-        break;
+    case pHState::INITIAL_WAIT: {
+      if (now - stateStartMs >= INITIAL_WAIT_MS) {
+        phCtrlState = pHState::MONITORING;
+        Serial.println("[pH-SM] Waktu tunggu awal (3 menit) selesai → MONITORING");
       }
-      // Syarat dosing 1: level HARUS stabil (1 menit tidak berubah)
+      break;
+    }
+
+    case pHState::MONITORING: {
+      static unsigned long phFaultStartMs = 0;
+      // Hiraukan ekstrem pH jika sedang proses kuras (sensor menggantung)
+      if (!cmdP1ValveOpen && (ph < PH_FAULT_LOW || ph > PH_FAULT_HIGH)) {
+        if (phFaultStartMs == 0) phFaultStartMs = millis();
+        if (millis() - phFaultStartMs > 5000) { // Debounce 5 detik menahan lonjakan sensor pH
+          stopAllDosing();
+          setP1Valve(false);
+          phCtrlState = pHState::PH_FAULT;
+          publishDosingState("PH_FAULT");
+          Serial.printf("[pH-SM] ⚠ FAULT ekstrem — pH=%.2f\n", ph);
+          phFaultStartMs = 0;
+          break;
+        }
+      } else {
+        phFaultStartMs = 0;
+      }
+
       if (!p1.isStable) {
         static unsigned long lastUnstableWarn = 0;
         if (millis() - lastUnstableWarn > 5000) {
           Serial.println("[pH-SM] Menunggu level stabil (1 menit)...");
           lastUnstableWarn = millis();
         }
-        break;  // Jangan lakukan apa-apa sampai stabil
+        break;  
       }
       
-      // Syarat dosing 2: level tangki harus di atas batas minimum (setpoint)
       if (p1.levelLogPct < P1_MIN_DOSING_PCT) {
         static unsigned long lastLowWarn = 0;
         if (millis() - lastLowWarn > 5000) {
@@ -401,8 +468,11 @@ void runPhStateMachine() {
         Serial.printf("[pH-SM] pH=%.2f > %.1f → DOSE_PULSE [ACID] #1 (%lu pulsa)\n",
                       ph, PH_SAFE_MAX, currentTargetPulse);
         break;
+      } else {
+        phCtrlState = pHState::PH_OK;
+        doseCycles  = 0;
+        Serial.println("[pH-SM] pH aman → Standby di PH_OK");
       }
-      phCtrlState = pHState::PH_OK;
       break;
     }
 
@@ -448,8 +518,9 @@ void runPhStateMachine() {
           (ph >= PH_DOSE_BASE_STOP) :
           (ph <= PH_DOSE_ACID_STOP);
         if (targetOK) {
-          phCtrlState = pHState::MONITORING;
-          Serial.println("[pH-SM] ✓ Target hysteresis tercapai → MONITORING");
+          phCtrlState = pHState::PH_OK;
+          doseCycles  = 0;
+          Serial.println("[pH-SM] ✓ Target hysteresis tercapai → PH_OK");
           break;
         }
         if (doseCycles >= MAX_DOSE_CYCLES) {
@@ -473,7 +544,7 @@ void runPhStateMachine() {
     }
 
     case pHState::PH_OK: {
-      if (ph < PH_SAFE_MIN || ph > PH_SAFE_MAX) {
+      if (!cmdP1ValveOpen && (ph < PH_SAFE_MIN || ph > PH_SAFE_MAX)) {
         phCtrlState = pHState::MONITORING;
         Serial.printf("[pH-SM] pH drift (%.2f) → MONITORING\n", ph);
       }
@@ -487,54 +558,80 @@ void runPhStateMachine() {
         doseCycles  = 0;
         phCtrlState = pHState::MONITORING;
         Serial.println("[pH-SM] pH kembali normal → MONITORING");
+      } else if (ph > PH_FAULT_LOW && ph < PH_FAULT_HIGH && doseCycles < MAX_DOSE_CYCLES) {
+        phCtrlState = pHState::MONITORING;
+        Serial.println("[pH-SM] Data sensor pulih → lanjut MONITORING");
       }
       break;
     }
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// LOGIKA VALVE Plant 1 + Interlock Plant 2
-// ─────────────────────────────────────────────────────────────
 void runValveControlP1() {
-  if (phCtrlState != pHState::PH_OK) { setP1Valve(false); return; }
-  
-  static bool p1StaleWarned = false;
-  if (!isP1DataFresh()) {
-    setP1Valve(false);
-    if (!p1StaleWarned) {
-      Serial.println("[VALVE-P1] P1 stale → TUTUP");
-      p1StaleWarned = true;
-    }
-    return;
-  }
-  p1StaleWarned = false;
-
-  if (isP2DataFresh()) {
-    if (p2.levelLogPct >= P2_INTERLOCK_PCT) {
-      if (cmdP1ValveOpen) {
+  // ====================================================================
+  // KONDISI A: JIKA POMPA/VALVE SEDANG MENYALA (PROSES DISTRIBUSI AKTIF)
+  // ====================================================================
+  if (cmdP1ValveOpen) {
+    // REVISI: Pompa hanya BOLEH MATI jika level air menyentuh batas bawah 10%
+    static unsigned long lowLevelStart = 0;
+    if (p1.levelLogPct <= 10.0f) { 
+      if (lowLevelStart == 0) lowLevelStart = millis();
+      if (millis() - lowLevelStart > 5000) { // Debounce 5 detik menahan lonjakan sensor
         setP1Valve(false);
-        Serial.printf("[INTERLOCK] P2=%.1f%% ≥ %.0f%% → Valve P1 TUTUP\n",
-                      p2.levelLogPct, P2_INTERLOCK_PCT);
+        Serial.printf("[VALVE-P1] Batas Kuras Tercapai (10%%). TUTUP Aman — P1=%.1f%%\n", p1.levelLogPct);
+        lowLevelStart = 0;
+        return;
       }
+    } else {
+      lowLevelStart = 0;
+    }
+
+    // INTERLOCK KHUSUS PLANT 2: Tetap matikan jika Plant 2 penuh (Sesuai tujuan Anda)
+    if (isP2DataFresh()) {
+      if (p2.levelLogPct >= P2_INTERLOCK_PCT) {
+        setP1Valve(false);
+        Serial.printf("[INTERLOCK] P2 Penuh (%.1f%%) → Pompa P1 dipaksa TUTUP\n", p2.levelLogPct);
+        return;
+      }
+    } else {
+      setP1Valve(false);
+      Serial.println("[INTERLOCK] Data P2 Hilang saat distribusi → Pompa P1 TUTUP (failsafe)");
       return;
     }
-  } else {
-    setP1Valve(false);
-    Serial.println("[INTERLOCK] P2 stale → Valve P1 TUTUP (failsafe)");
+
+    // BYPASS TOTAL: Selama air masih di atas 10% dan Plant 2 belum penuh, keluar.
+    // Fluktuasi sensor naik-turun (seperti lompatan ke 87.8% tadi) DIABAIKAN TOTAL!
+    return; 
+  }
+
+  // ====================================================================
+  // KONDISI B: JIKA POMPA SEDANG MATI MENURUT MTU (MENUNGGU SYARAT START)
+  // ====================================================================
+  
+  // Tentukan apakah SEMUA syarat ideal untuk memulai kuras terpenuhi
+  bool shouldBeOpen = (phCtrlState == pHState::PH_OK) && 
+                      isP1DataFresh() &&
+                      (!isP2DataFresh() || p2.levelLogPct < P2_INTERLOCK_PCT) &&
+                      (p1.levelLogPct >= P1_LEVEL_OPEN_PCT);
+
+  if (!shouldBeOpen) {
+    // Jika syarat TIDAK terpenuhi, cek apakah pompa fisik ternyata malah nyala
+    if (p1.valveOpen) {
+      // Pompa fisik menyala (karena manual dari web atau hantu pesan retain MQTT),
+      // sedangkan aturan MTU melarangnya. Paksa TUTUP sekarang juga!
+      cmdP1ValveOpen = true; // Tipu stateTracker sesaat agar pengiriman perintah tidak dicegah
+      setP1Valve(false);
+      Serial.println("[VALVE-P1] ⚠ Pompa menyala di luar aturan MTU. Memaksa TUTUP!");
+    }
     return;
   }
-  if (!cmdP1ValveOpen && p1.levelLogPct >= P1_LEVEL_OPEN_PCT) {
-    setP1Valve(true);
-    Serial.printf("[VALVE-P1] BUKA — pH=%.2f P1=%.1f%% P2=%.1f%%\n",
-                  p1.ph, p1.levelLogPct, p2.levelLogPct);
-  } else if (cmdP1ValveOpen && p1.levelLogPct <= P1_LEVEL_CLOSE_PCT) {
-    setP1Valve(false);
-    Serial.printf("[VALVE-P1] TUTUP — P1=%.1f%%\n", p1.levelLogPct);
-  }
-}
 
-// ─────────────────────────────────────────────────────────────
+  // JIKA SEMUA SYARAT AMAN DAN LEVEL BENAR-BENAR PENUH (>80%), BARULAH START
+  setP1Valve(true);
+  Serial.printf("[VALVE-P1] START DISTRIBUSI — pH=%.2f P1=%.1f%% P2=%.1f%%\n", 
+                p1.ph, p1.levelLogPct, p2.levelLogPct);
+}
+//─────────────────────────────────────────────────────────
 // LOGIKA VALVE Plant 2
 // ─────────────────────────────────────────────────────────────
 void runValveControlP2() {
@@ -572,12 +669,11 @@ void runValveControlP2() {
 // ─────────────────────────────────────────────────────────────
 bool isFaultPH() {
   if (!p1.phValid) return true;
-  return (p1.ph < PH_SAFE_MIN || p1.ph > PH_SAFE_MAX ||
+  return (p1.ph < PH_FAULT_LOW || p1.ph > PH_FAULT_HIGH ||
           phCtrlState == pHState::PH_FAULT);
 }
 
 bool isFaultLevel() {
-  // [FIX 2] Tanpa systemReady, tidak ada fault sebelum data pertama tiba
   if (!systemReady) return false;
   if (!p1.levelValid || !p2.levelValid) return true;
   if (cmdP1ValveOpen && p1.levelLogPct <= P1_LEVEL_CLOSE_PCT) return true;
@@ -588,23 +684,13 @@ bool isFaultLevel() {
 bool isFaultFlow() {
   if (!systemReady) return false;
   if (!p2.flowValid) return false;
-  // [FIX 4] Ganti == 0.0f dengan threshold 0.1f
-  // Nilai float sensor hampir tidak pernah persis 0.0f karena noise
-  if (cmdP2ValveMainOpen && p2.flowLPM < 0.1f) return true;  // tersumbat/pompa mati
-  if (p2.flowLPM > 10.0f) return true;                       // overflow
+  if (cmdP2ValveMainOpen && p2.flowLPM < 0.1f) return true;  
+  if (p2.flowLPM > 10.0f) return true;                       
   return false;
 }
 
 // ─────────────────────────────────────────────────────────────
-// ALARM ENGINE — satu instance per kategori
-//
-// [FIX 3] updateOneAlarm() sekarang generik sepenuhnya.
-// Kondisi rekuren menggunakan parameter faultActive, bukan
-// hardcode cek pH. Berlaku sama untuk alarm pH, level, flow.
-//
-// Alur: NORMAL → FAULT (flip-flop) → ACKED (steady)
-//              → CLEARED (alarm off, Maint ON)
-//              → NORMAL (Maint OFF, setelah Reset ke-2)
+// ALARM ENGINE 
 // ─────────────────────────────────────────────────────────────
 void updateOneAlarm(Alarm& alarm, uint16_t coilAddr,
                     uint16_t ackCoilAddr, bool faultActive) {
@@ -624,22 +710,19 @@ void updateOneAlarm(Alarm& alarm, uint16_t coilAddr,
     }
 
     case AlarmState::FAULT: {
-      // Flip-flop indikator
       if (now - alarm.lastFlipMs >= ALARM_FLIP_MS) {
         alarm.lastFlipMs = now;
         alarm.flipFlop   = !alarm.flipFlop;
         modbus.Coil(coilAddr, alarm.flipFlop);
       }
-      // Deteksi rising edge ACK dari HMI
       bool curAck = modbus.Coil(ackCoilAddr);
       if (curAck && !alarm.prevAckCoil) {
         alarm.state = AlarmState::ACKED;
-        modbus.Coil(coilAddr,    true);   // steady ON (kuning di HMI)
-        modbus.Coil(ackCoilAddr, false);  // reset tombol ACK
+        modbus.Coil(coilAddr,    true);   
+        modbus.Coil(ackCoilAddr, false);  
         Serial.printf("[ALARM] Coil %d ACKED\n", coilAddr);
       }
       alarm.prevAckCoil = curAck;
-      // Fault hilang sendiri sebelum di-ACK → kembali normal
       if (!faultActive) {
         alarm.state = AlarmState::NORMAL;
         modbus.Coil(coilAddr, false);
@@ -648,8 +731,6 @@ void updateOneAlarm(Alarm& alarm, uint16_t coilAddr,
     }
 
     case AlarmState::ACKED: {
-      // [FIX 3] Gunakan faultActive — berlaku untuk semua jenis alarm
-      // Bukan hanya pH. Jika fault muncul lagi saat ACKED → FAULT
       if (faultActive) {
         alarm.state      = AlarmState::FAULT;
         alarm.flipFlop   = true;
@@ -657,19 +738,16 @@ void updateOneAlarm(Alarm& alarm, uint16_t coilAddr,
         modbus.Coil(coilAddr, true);
         Serial.printf("[ALARM] Coil %d rekuren → FAULT\n", coilAddr);
       }
-      // Transisi ke CLEARED ditangani di handleResetSwitch()
       break;
     }
 
     case AlarmState::CLEARED: {
-      // Tetap di CLEARED sampai Reset ke-2 (ditangani di handleResetSwitch)
       break;
     }
   }
 }
 
 void updateAlarms() {
-  // [FIX 2] Alarm hanya dievaluasi setelah system ready
   if (!systemReady) return;
   updateOneAlarm(alarmPH,    COIL_ALARM_PH,    COIL_ACK_PH,    isFaultPH());
   updateOneAlarm(alarmLevel, COIL_ALARM_LEVEL, COIL_ACK_LEVEL, isFaultLevel());
@@ -677,9 +755,7 @@ void updateAlarms() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// HANDLER RESET SWITCH (detent/toggle)
-// Rising edge  0→1 : Reset ke-1 → alarm CLEARED, Maintenance ON
-// Falling edge 1→0 : Reset ke-2 → Maintenance OFF, kembali NORMAL
+// HANDLER RESET SWITCH
 // ─────────────────────────────────────────────────────────────
 void handleResetSwitch() {
   bool curReset = modbus.Coil(COIL_RESET);
@@ -728,7 +804,7 @@ void updateModbusData() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MQTT CALLBACK — Parsing data dari Plant 1 & Plant 2
+// MQTT CALLBACK 
 // ─────────────────────────────────────────────────────────────
 void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
   String t   = String(topic);
@@ -741,11 +817,18 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
     Serial.println("[ERR] JSON parse gagal"); return;
   }
 
+  // JIKA pompa/mixer sedang menyala, bypass pembaruan nilai pH dari sensor untuk hindari noise induksi listrik / kimia sesaat
   if (t == T_P1_PH) {
-    float val = doc["value"].as<float>();
-    if (val > 0.0f) {
-      p1.ph = val; p1.phValid = true; p1.lastPhMs = millis();
-    } else { p1.phValid = false; }
+    if (cmdP1AcidPumpOn || cmdP1BasePumpOn || cmdP1MixerOn) {
+      // Pembacaan pH dikunci pada nilai terakhir agar tidak melompat karena induksi
+      p1.phValid = true; 
+      p1.lastPhMs = millis();
+    } else {
+      float val = doc["value"].as<float>();
+      if (val > 0.0f) {
+        p1.ph = val; p1.phValid = true; p1.lastPhMs = millis();
+      } else { p1.phValid = false; }
+    }
   }
   else if (t == T_P1_LEVEL) {
     float lit = doc["value_liter"].as<float>();
@@ -754,7 +837,7 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
       p1.levelLiter  = lit;
       p1.levelPct    = pct;
       p1.levelLogPct = toLogicalPct(lit, P1_MAX_VOL_L);
-      p1.isStable    = doc["is_stable"] | false;  // dari Plant 1 RTU
+      p1.isStable    = doc["is_stable"] | false;  
       p1.levelValid  = true;
       p1.lastLevelMs = millis();
     } else { p1.levelValid = false; p1.isStable = false; }
@@ -786,18 +869,19 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
     p2.valveFsOpen = (doc["state"].as<String>() == "OPEN");
   }
 
-  // [FIX 2] Cek systemReady setelah setiap data masuk
-  // Disetel true hanya sekali, tidak pernah balik ke false
   if (!systemReady && p1.phValid && p1.levelValid && p2.levelValid) {
     systemReady = true;
     Serial.println("[SYS] ✓ System READY — data P1 & P2 telah diterima");
   }
 
-  // Menerima perintah perubahan State dari Web Dashboard
   if (t == "wwtp/mtu/cmd") {
     if (doc.containsKey("state")) {
       String st = doc["state"].as<String>();
-      if (st == "MONITORING") phCtrlState = pHState::MONITORING;
+      if (st == "INITIAL_WAIT") {
+        phCtrlState = pHState::INITIAL_WAIT;
+        stateStartMs = millis();
+      }
+      else if (st == "MONITORING") phCtrlState = pHState::MONITORING;
       else if (st == "DOSE_PULSE") phCtrlState = pHState::DOSE_PULSE;
       else if (st == "DOSE_DELAY") phCtrlState = pHState::DOSE_DELAY;
       else if (st == "MIXING") phCtrlState = pHState::MIXING;
@@ -810,17 +894,8 @@ void onMQTTMessage(char* topic, byte* payload, unsigned int len) {
 
 // ─────────────────────────────────────────────────────────────
 // KONEKSI WiFi
-// connectWiFi()        — BLOCKING, hanya untuk setup()
-// tryReconnectWiFi()   — NON-BLOCKING, untuk loop()
 // ─────────────────────────────────────────────────────────────
 void connectWiFi() {
-  // IPAddress ip, gw, sn, dns;
-  // ip.fromString(MTU_STATIC_IP);
-  // gw.fromString(MTU_GATEWAY);
-  // sn.fromString(MTU_SUBNET);
-  // dns.fromString(MTU_DNS);
-  // WiFi.config(ip, gw, sn, dns);  // DNS wajib — tanpa ini rc=-2 saat resolve HiveMQ
-
   Serial.printf("[WIFI] Connecting ke %s via DHCP...", WIFI_SSID);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   int tries = 0;
@@ -833,10 +908,6 @@ void connectWiFi() {
     Serial.println("\n[WIFI] Gagal — akan retry non-blocking di loop()");
 }
 
-// [FIX 5 - bagian WiFi] Non-blocking WiFi reconnect
-// Tidak ada delay() — modbus.task() tetap berjalan selama reconnect.
-// Selama WiFi mati: kontrol lokal tetap jalan dgn data terakhir,
-// snapshot tersimpan di RAM, flush terjadi setelah reconnect.
 unsigned long lastWifiRetryMs = 0;
 bool          wifiReconnecting = false;
 
@@ -867,10 +938,7 @@ void tryReconnectWiFi() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KONEKSI MQTT
-// connectMQTT()      — Satu percobaan di setup(); jika gagal,
-//                      tryReconnectMQTT() di loop() melanjutkan [FIX 5]
-// tryReconnectMQTT() — NON-BLOCKING, untuk loop() [FIX 5]
+// KONEKSI MQTT (Ditambahkan agar wificlient/mqtt di setup valid)
 // ─────────────────────────────────────────────────────────────
 void subscribeAllTopics() {
   mqtt.subscribe(T_P1_PH);
@@ -884,25 +952,16 @@ void subscribeAllTopics() {
   Serial.println("[MQTT] Subscribe: P1(ph,level,valve) | P2(level,flow,valve_main,valve_fs) | MTU(cmd)");
 }
 
-// [FIX 5] connectMQTT() — versi setup(), TANPA while/delay agar tidak
-// memblokir modbus.task(). Satu percobaan connect; jika gagal,
-// tryReconnectMQTT() di loop() akan melanjutkan secara non-blocking.
 void connectMQTT() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  Serial.printf("[MQTT] Connecting id:%s...\n", MQTT_CLIENT_ID);
+  Serial.print("[MQTT] Menghubungkan ke broker...");
   if (mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS)) {
-    Serial.println("[MQTT] Connected");
+    Serial.println(" Terhubung!");
     subscribeAllTopics();
   } else {
-    Serial.printf("[MQTT] Gagal rc=%d — akan retry non-blocking di loop()\n",
-                  mqtt.state());
+    Serial.printf(" Gagal, rc=%d. Mencoba lagi via non-blocking loop.\n", mqtt.state());
   }
 }
 
-// [FIX 5] Non-blocking MQTT reconnect
-// Tidak blocking — tidak ada while/delay di sini.
-// Satu percobaan connect per panggilan; dicoba lagi setelah
-// MQTT_RECONNECT_MS jika masih gagal.
 unsigned long lastMqttRetryMs = 0;
 
 void tryReconnectMQTT() {
@@ -917,12 +976,8 @@ void tryReconnectMQTT() {
   if (mqtt.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS)) {
     Serial.println("[MQTT] Reconnect OK");
     subscribeAllTopics();
-
-    // [FIX 6] Reset state tracker agar MTU republish perintah terakhir
-    // (broker mungkin restart dan retained messages hilang)
     resetActuatorTrackers();
 
-    // Tandai bahwa ada data offline yang perlu di-flush ke Supabase
     if (bufCount > 0) {
       needFlush = true;
       Serial.printf("[BUF] %d entri offline siap di-flush\n", bufCount);
@@ -946,7 +1001,7 @@ void initModbus() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// STATUS MONITOR — Serial print setiap 5 detik
+// STATUS MONITOR
 // ─────────────────────────────────────────────────────────────
 const char* alarmStateStr(AlarmState st) {
   switch (st) {
@@ -999,7 +1054,7 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("\n╔════════════════════════════════════════════════════╗");
-  Serial.println("║   WWTP MTU — Sistem Kontrol Terpusat              ║");
+  Serial.println("║   WWTP MTU — Sistem Kontrol Terpusat               ║");
   Serial.println("║   ESP32 WEMOS D1 R32                               ║");
   Serial.println("╚════════════════════════════════════════════════════╝\n");
   Serial.printf("[CFG] Static IP      : %s\n",    MTU_STATIC_IP);
@@ -1016,10 +1071,9 @@ void setup() {
                 SNAPSHOT_INTERVAL_MS / 1000,
                 (unsigned long)OFFLINE_BUF_SIZE * SNAPSHOT_INTERVAL_MS / 60000);
 
-  // Inisialisasi ring buffer
   memset(offlineBuf, 0, sizeof(offlineBuf));
 
-  wifiClient.setInsecure(); // TLS tanpa validasi CA cert — enkripsi tetap aktif
+  wifiClient.setInsecure(); 
   mqtt.setServer(MQTT_BROKER, MQTT_PORT);
   mqtt.setCallback(onMQTTMessage);
   mqtt.setBufferSize(512);
@@ -1027,36 +1081,25 @@ void setup() {
 
   connectWiFi();
   initModbus();
-  connectMQTT();
+  connectMQTT(); // Fungsi di atas sekarang valid dipanggil
 
   Serial.println("[SYS] MTU siap. Menunggu data dari Plant 1 & Plant 2...\n");
+  stateStartMs = millis();
 }
 
 // ─────────────────────────────────────────────────────────────
-// LOOP — Semua non-blocking, berbasis millis()
+// LOOP
 // ─────────────────────────────────────────────────────────────
 void loop() {
-  // 1. Layani request Modbus TCP dari InTouch — prioritas tertinggi
-  //    Selalu dipanggil pertama agar HMI tidak timeout
   modbus.task();
-
-  // 2. Jaga koneksi WiFi (non-blocking)
-  //    Selama WiFi mati: kontrol lokal tetap jalan, snapshot ke RAM
   tryReconnectWiFi();
-
-  // 3. Jaga koneksi MQTT (non-blocking) [FIX 5]
-  //    Satu percobaan per MQTT_RECONNECT_MS, tidak ada delay()
   tryReconnectMQTT();
-
-  // 4. Proses pesan MQTT masuk dari RTU
   if (mqtt.connected()) mqtt.loop();
 
-  // 5. State machine pH Plant 1
   if (isP1DataFresh()) {
     runPhStateMachine();
   } else if (systemReady) {
-    // Data stale SETELAH sistem pernah ready → failsafe
-    if (phCtrlState != pHState::PH_FAULT) {
+    if (phCtrlState != pHState::PH_FAULT && phCtrlState != pHState::INITIAL_WAIT) {
       stopAllDosing();
       setP1Valve(false);
       phCtrlState = pHState::PH_FAULT;
@@ -1064,32 +1107,17 @@ void loop() {
     }
   }
 
-  // 6. Kontrol valve Plant 1 (dengan interlock Plant 2)
   runValveControlP1();
-
-  // 7. Kontrol valve Plant 2
   runValveControlP2();
-
-  // 8. Alarm state machine + flip-flop coil
   updateAlarms();
-
-  // 9. Detent switch Reset dari HMI
   handleResetSwitch();
-
-  // 10. Sinkronisasi sensor & aktuator ke Modbus register
   updateModbusData();
-
-  // 11. Snapshot periodik ke offline buffer
-  //     Berjalan meski WiFi mati — data tersimpan di RAM ESP32
   runSnapshotTask();
 
-  // 12. Flush buffer ke Supabase via MQTT jika baru reconnect
   if (needFlush && mqtt.connected()) {
     flushOfflineBuffer();
   }
 
-  // 13. Serial status monitor
   printStatus();
-
   yield();
 }

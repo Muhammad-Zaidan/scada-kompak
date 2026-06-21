@@ -10,6 +10,8 @@ const MIN_DOSING_PCT = 80;
 
 function getStateReason(state, ph, levelPct, acidOn, baseOn, mixerOn) {
   switch (state) {
+    case 'INITIAL_WAIT':
+      return `Menunggu stabilisasi sensor awal (3 menit) sebelum memulai kontrol`;
     case 'MONITORING':
       if (levelPct < MIN_DOSING_PCT)
         return `Level terlalu rendah (${levelPct.toFixed(1)}% < ${MIN_DOSING_PCT}%) — dosing ditunda`;
@@ -50,6 +52,7 @@ function getStateReason(state, ph, levelPct, acidOn, baseOn, mixerOn) {
 
 function getStateColor(state) {
   switch (state) {
+    case 'INITIAL_WAIT': return '#64748b'; // Slate gray
     case 'PH_OK': return '#22c55e';
     case 'MONITORING': return '#3b82f6';
     case 'DOSE_PULSE': return '#f59e0b';
@@ -78,6 +81,7 @@ const Plant1Card = ({ data, mtuState, publishCommand }) => {
             onChange={(e) => publishCommand('wwtp/mtu/cmd', { state: e.target.value })}
             style={{ fontSize: '0.8rem', padding: '0.2rem', backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
           >
+            <option value="INITIAL_WAIT">INITIAL_WAIT</option>
             <option value="MONITORING">MONITORING</option>
             <option value="DOSE_PULSE">DOSE_PULSE</option>
             <option value="DOSE_DELAY">DOSE_DELAY</option>

@@ -6,8 +6,8 @@
 // ─────────────────────────────────────────────────────────────
 // Wi-Fi
 // ─────────────────────────────────────────────────────────────
-#define WIFI_SSID               "Polban"
-#define WIFI_PASSWORD           "12polban34"
+#define WIFI_SSID               "Redmi Note 14"
+#define WIFI_PASSWORD           "marleskazir0"
 
 // ─────────────────────────────────────────────────────────────
 // Static IP MTU (wajib statis untuk Modbus TCP dari InTouch)
@@ -20,10 +20,10 @@
 // ─────────────────────────────────────────────────────────────
 // MQTT BROKER
 // ─────────────────────────────────────────────────────────────
-#define MQTT_BROKER             "1181cbf946a740f4b5a02a311e1d483e.s1.eu.hivemq.cloud"
+#define MQTT_BROKER             "704e8cb56cf1497ca1ff0e371b9415ff.s1.eu.hivemq.cloud"
 #define MQTT_PORT               8883
-#define MQTT_USER               "kompak1"
-#define MQTT_PASS               "Kompak2000"
+#define MQTT_USER               "kompak"
+#define MQTT_PASS               "Kompak2026"
 #define MQTT_CLIENT_ID          "wwtp_mtu_001"
 
 // ─────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@
 #define PH_SAFE_MIN             6.8f    // Batas bawah aman — mulai dosing basa
 #define PH_SAFE_MAX             7.2f    // Batas atas aman — mulai dosing asam
 #define PH_FAULT_LOW            5.5f    // Fault ekstrem bawah → PH_FAULT
-#define PH_FAULT_HIGH           9.5f    // Fault ekstrem atas → PH_FAULT
+#define PH_FAULT_HIGH           8.5f    // Fault ekstrem atas → PH_FAULT
 
 // Hysteresis stop — berhenti dosing di titik ini (bukan tepat 7.0)
 // untuk menghindari overshoot
@@ -128,7 +128,7 @@
 // ─────────────────────────────────────────────────────────────
 // LOGIKA VALVE Plant 1
 // ─────────────────────────────────────────────────────────────
-#define P1_LEVEL_OPEN_PCT       85.0f
+#define P1_LEVEL_OPEN_PCT       80.0f
 #define P1_LEVEL_CLOSE_PCT      10.0f
 #define P1_MIN_DOSING_PCT       80.0f   // Dosing & mixing hanya aktif jika level >= ini
 
@@ -147,11 +147,12 @@
 // ─────────────────────────────────────────────────────────────
 // TIMING SISTEM
 // ─────────────────────────────────────────────────────────────
-#define DATA_TIMEOUT_MS         60000UL
+#define DATA_TIMEOUT_MS         10000UL
 #define ALARM_FLIP_MS           500UL
 #define WIFI_RECONNECT_MS       10000UL
 #define MQTT_RECONNECT_MS       5000UL
 #define SNAPSHOT_INTERVAL_MS    30000UL
+#define INITIAL_WAIT_MS         180000UL// Waktu tunggu awal saat mesin baru nyala (3 menit)
 
 // ─────────────────────────────────────────────────────────────
 // OFFLINE BUFFER
@@ -169,6 +170,7 @@
 //       → cek pH → jika belum OK → DOSE_PULSE lagi (max 5 siklus)
 //       → jika OK → PH_OK
 enum class pHState {
+  INITIAL_WAIT, // Menunggu sensor stabil saat MTU baru dinyalakan
   MONITORING,   // Cek pH + stabilitas level, putuskan apakah perlu dosing
   DOSE_PULSE,   // Pompa dosing ON selama DOSE_PULSE_MS
   DOSE_DELAY,   // Delay sebelum mixer nyala

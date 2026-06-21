@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import mqtt from 'mqtt';
-import { Activity } from 'lucide-react';
+import { Activity, Database } from 'lucide-react';
 import Plant1Card from './components/Plant1Card';
 import Plant2Card from './components/Plant2Card';
 import AlertLog from './components/AlertLog';
 
-const BROKER_URL = 'wss://1181cbf946a740f4b5a02a311e1d483e.s1.eu.hivemq.cloud:8884/mqtt';
+const BROKER_URL = 'wss://704e8cb56cf1497ca1ff0e371b9415ff.s1.eu.hivemq.cloud:8884/mqtt';
 const OPTIONS = {
-  username: 'kompak1',
-  password: 'Kompak2000',
+  username: 'kompak',
+  password: 'Kompak2026',
   clientId: `web_dashboard_${Math.random().toString(16).slice(3)}`,
   clean: true,
   reconnectPeriod: 3000,
@@ -139,6 +139,14 @@ function App() {
     }
   };
 
+    const testDatabaseInsert = () => {
+      const payload = {
+        message: `Test data from web via MQTT at ${new Date().toLocaleTimeString()}`
+      };
+      publishCommand('wwtp/test', payload);
+      alert("Pesan test telah dikirim ke topik MQTT 'wwtp/test'. Silakan cek Node-RED dan Supabase.");
+    };
+
   return (
     <>
       <div className="header">
@@ -146,9 +154,19 @@ function App() {
           <h1>SCADA WWTP Monitor</h1>
           <p className="text-muted">Real-time telemetry via MQTT WebSockets</p>
         </div>
-        <div className={`status-badge ${connectStatus === 'Connected' ? 'connected' : 'disconnected'}`}>
-          <div className={`status-indicator ${connectStatus === 'Connected' ? 'active pulse' : 'fault'}`}></div>
-          {connectStatus}
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button 
+            className="ctrl-btn" 
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6' }}
+            onClick={testDatabaseInsert}
+          >
+            <Database size={16} /> Test Database
+          </button>
+          
+          <div className={`status-badge ${connectStatus === 'Connected' ? 'connected' : 'disconnected'}`}>
+            <div className={`status-indicator ${connectStatus === 'Connected' ? 'active pulse' : 'fault'}`}></div>
+            {connectStatus}
+          </div>
         </div>
       </div>
 

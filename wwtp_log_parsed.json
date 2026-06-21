@@ -1,0 +1,259 @@
+{
+  "device": {
+    "name": "WWTP MTU - Sistem Kontrol Terpusat",
+    "board": "ESP32 WEMOS D1 R32",
+    "boot_reason": "POWERON_RESET",
+    "sdk_boot_log": "ets Jul 29 2019 12:21:46 / rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)"
+  },
+  "config": {
+    "static_ip": "192.168.1.100",
+    "dns_server": "8.8.8.8",
+    "mqtt_broker": "704e8cb56cf1497ca1ff0e371b9415ff.s1.eu.hivemq.cloud:8883",
+    "ph_safe_range": { "min": 6.8, "max": 7.2 },
+    "hysteresis": { "base_trigger_above_or_equal": 6.9, "acid_trigger_below_or_equal": 7.1 },
+    "plant1_volume_max_liter": 6.8,
+    "plant1_volume_max_pct_of_tank": 80,
+    "plant1_tank_capacity_liter": 15,
+    "plant2_volume_max_liter": 9.1,
+    "plant2_volume_max_pct_of_tank": 80,
+    "plant2_tank_capacity_liter": 19,
+    "plant2_interlock_threshold_pct": 95,
+    "offline_buffer_slots": 60,
+    "offline_buffer_interval_sec": 30,
+    "offline_buffer_duration_minutes": 30
+  },
+  "network_init": {
+    "wifi_ssid": "Redmi Note 14",
+    "wifi_method": "DHCP",
+    "wifi_ip_assigned": "10.75.214.90",
+    "modbus_port": 502,
+    "modbus_ip": "192.168.1.100",
+    "modbus_holding_registers": 8,
+    "modbus_coils": 11,
+    "mqtt_status": "connected",
+    "mqtt_subscribed_topics": [
+      "wwtp/plant1/ph",
+      "wwtp/plant1/level",
+      "wwtp/plant1/valve/state",
+      "wwtp/plant2/level",
+      "wwtp/plant2/flow",
+      "wwtp/plant2/valve/main/state",
+      "wwtp/plant2/valve/failsafe/state",
+      "wwtp/mtu/cmd"
+    ]
+  },
+  "mqtt_topics_observed": {
+    "plant1": [
+      "wwtp/plant1/ph",
+      "wwtp/plant1/level",
+      "wwtp/plant1/valve/state",
+      "wwtp/plant1/dosing/base/cmd",
+      "wwtp/plant1/mixer/cmd",
+      "wwtp/plant1/valve/cmd",
+      "wwtp/mtu/dosing/state"
+    ],
+    "plant2": [
+      "wwtp/plant2/level",
+      "wwtp/plant2/flow",
+      "wwtp/plant2/valve/main/state",
+      "wwtp/plant2/valve/failsafe/state",
+      "wwtp/plant2/valve/main/cmd",
+      "wwtp/plant2/valve/failsafe/cmd"
+    ]
+  },
+  "state_machine_plant1": {
+    "states_observed": [
+      "INITIAL_WAIT",
+      "MONITORING",
+      "DOSE_PULSE",
+      "DOSE_DELAY",
+      "MIXING",
+      "SETTLING",
+      "PH_FAULT",
+      "PH_OK"
+    ],
+    "notes": "Siklus dosing basa terjadi saat pH < 6.8 (di bawah batas aman bawah). Setelah pulsa dosing, sistem masuk DOSE_DELAY -> MIXING -> SETTLING, lalu kembali ke MONITORING. PH_FAULT dipicu saat data plant1 stale (tidak fresh)."
+  },
+  "key_events_timeline": [
+    {
+      "seq": 1,
+      "event": "boot",
+      "description": "ESP32 boot dari POWERON_RESET, memuat firmware SPI flash"
+    },
+    {
+      "seq": 2,
+      "event": "wifi_connected",
+      "description": "Terhubung ke WiFi 'Redmi Note 14' via DHCP, IP 10.75.214.90"
+    },
+    {
+      "seq": 3,
+      "event": "mqtt_connected",
+      "description": "Terhubung ke broker HiveMQ Cloud, subscribe topik P1 dan P2"
+    },
+    {
+      "seq": 4,
+      "event": "system_ready",
+      "description": "Data awal dari Plant 1 dan Plant 2 diterima, sistem berstatus READY (Buf:1/60)"
+    },
+    {
+      "seq": 5,
+      "event": "dosing_cycle_start",
+      "description": "Setelah initial wait 3 menit, pH P1=6.73 (<6.8) memicu DOSE_PULSE BASE siklus #1, 6 pulsa pompa basa"
+    },
+    {
+      "seq": 6,
+      "event": "dosing_pulse_timeout",
+      "description": "Timeout pulsa 15000ms tercapai, transisi ke DOSE_DELAY"
+    },
+    {
+      "seq": 7,
+      "event": "mixing_start",
+      "description": "Delay selesai, mixer ON, siklus #2"
+    },
+    {
+      "seq": 8,
+      "event": "mixing_stop_settling",
+      "description": "Mixer OFF setelah mixing, transisi ke SETTLING"
+    },
+    {
+      "seq": 9,
+      "event": "ph_fault_plant1",
+      "description": "Data Plant1 stale (tidak fresh) -> sistem masuk PH_FAULT failsafe, Coil 0 FAULT alarm aktif",
+      "recurs": true,
+      "note": "Pola ini berulang berkali-kali sepanjang log: data P1 menjadi stale secara periodik lalu pulih kembali (pH kembali normal -> MONITORING)"
+    },
+    {
+      "seq": 10,
+      "event": "level_fault_plant1",
+      "description": "Sensor level Plant1 mengirim value_cm:-1.0 / value_pct:-1.0 dengan status 'Fault' -> Coil 1 FAULT, level dianggap 0%"
+    },
+    {
+      "seq": 11,
+      "event": "plant2_level_critical_high",
+      "description": "Level Plant2 mencapai 98-100% (Critical_High) -> Main valve dan Failsafe valve P2 dibuka otomatis (mode AUTO), Coil 2 FAULT (failsafe terpicu)"
+    },
+    {
+      "seq": 12,
+      "event": "plant2_level_critical_low",
+      "description": "Setelah valve dibuka, level P2 turun cepat ke 0% (Critical_Low) -> kedua valve ditutup kembali otomatis"
+    },
+    {
+      "seq": 13,
+      "event": "plant1_outlet_open_distribution",
+      "description": "Saat pH P1 kembali normal (6.83) dan level P1 stabil tinggi (99.8%) sementara level P2 rendah (16.4%), sistem membuka outlet valve P1 untuk mendistribusikan air ke P2 (VALVE-P1 START DISTRIBUSI)"
+    },
+    {
+      "seq": 14,
+      "event": "ph_drift_anomaly",
+      "description": "Pembacaan pH P1 melonjak tajam dan tidak wajar dari ~7.4 ke 7.75, 8.56, 9.26, 9.99 (status Critical), puncak 10.57, lalu turun kembali bertahap ke ~7.3 - kemungkinan gangguan sensor/probe pH atau noise, bukan perubahan kimia nyata karena terlalu cepat",
+      "alarm": "Coil 0 FAULT dan status pH:FAULT pada beberapa snapshot"
+    },
+    {
+      "seq": 15,
+      "event": "plant2_flow_fault_during_distribution",
+      "description": "Saat VMain P2 BUKA dan distribusi berlangsung, Flow sensor P2 melaporkan 0.00 L/min terus-menerus -> alarm Flow:FAULT (No_Flow) walau valve dalam posisi BUKA, mengindikasikan kemungkinan pompa transfer tidak aktif atau sensor flow bermasalah"
+    },
+    {
+      "seq": 16,
+      "event": "plant1_level_critical_low_recurring",
+      "description": "Selama fase distribusi (valve P1 BUKA), level P1 berulang kali turun ke 0.0%/0.3%/4.4% (Critical_Low, value_cm sangat tinggi seperti 27.7-37.4cm) -> Coil 1 FAULT berulang, lalu naik kembali"
+    },
+    {
+      "seq": 17,
+      "event": "log_end",
+      "description": "Log berakhir saat Buf:29/60, P1 dalam state PH_OK/MONITORING level ~37%, P2 level ~56% dengan VMain BUKA dan Flow:FAULT masih aktif"
+    }
+  ],
+  "alarms_summary": {
+    "coil_0_ph_fault": {
+      "description": "pH Plant1 FAULT - dipicu saat data MQTT pH P1 stale/tidak fresh melebihi timeout",
+      "occurrences_approx": "20+ kali (berulang siklus stale/recover)"
+    },
+    "coil_1_level_fault_plant1": {
+      "description": "Level Plant1 FAULT - dipicu saat sensor mengirim value_cm:-1.0 atau status 'Fault'",
+      "occurrences_approx": "10+ kali"
+    },
+    "coil_2_flow_or_failsafe_fault_plant2": {
+      "description": "Flow Plant2 FAULT (No_Flow saat valve OPEN) atau Failsafe valve P2 ter-trigger saat level Critical_High",
+      "occurrences_approx": "5+ kali"
+    },
+    "ph_anomaly_critical": {
+      "description": "pH P1 melonjak ke status 'Critical' (9.43 - 10.57) secara tidak wajar lalu kembali normal",
+      "occurrences": 1,
+      "values_seen": [7.75, 8.56, 9.26, 9.99, 10.57, 10.38, 10.14, 9.89, 9.66, 9.43, 9.23, 9.03, 8.85, 8.69, 8.55]
+    }
+  },
+  "plant1_dosing_event_detail": {
+    "trigger_ph": 6.73,
+    "threshold": "pH < 6.8",
+    "action": "DOSE_PULSE BASE",
+    "cycle_number": 1,
+    "target_pulse": 6,
+    "pulse_timeout_ms": 15000,
+    "sequence": ["DOSE_PULSE", "DOSE_DELAY", "MIXING", "SETTLING", "MONITORING"]
+  },
+  "plant2_valve_auto_events": [
+    {
+      "trigger": "level_pct >= 95 (Critical_High, ~98.2%)",
+      "action": "main_valve OPEN, failsafe_valve OPEN (AUTO)",
+      "alarm": "Coil 2 FAULT (failsafe activation)"
+    },
+    {
+      "trigger": "level_pct drop to 0% (Critical_Low) after discharge",
+      "action": "main_valve CLOSED, failsafe_valve CLOSED (AUTO)"
+    },
+    {
+      "trigger": "level_pct 54-72% during plant1 distribution",
+      "action": "main_valve OPEN only (failsafe stays CLOSED)",
+      "alarm": "Coil 2 FAULT (flow sensor No_Flow while valve open)"
+    }
+  ],
+  "plant1_distribution_event": {
+    "trigger_condition": "pH normal (6.83) AND level P1 high (99.8%, stable) AND level P2 low (16.4%)",
+    "action": "outlet_valve OPEN (AUTO) - START DISTRIBUSI",
+    "purpose": "Transfer air olahan dari Plant1 ke Plant2",
+    "subsequent_behavior": "Level P1 turun bertahap dari 99.8% menuju ~20-40% sambil pH tetap dipantau (drift anomaly terjadi di tengah fase ini), valve tetap BUKA hingga akhir log"
+  },
+  "final_state_snapshot": {
+    "ready": true,
+    "mqtt": "OK",
+    "wifi": "OK",
+    "buffer_used": 29,
+    "buffer_max": 60,
+    "plant1": {
+      "ph": 7.46,
+      "state": "PH_OK",
+      "cycle": 0,
+      "cycle_max": 10,
+      "fresh": true,
+      "stable": false,
+      "level_pct": 36.9,
+      "level_liter": 2.51,
+      "valve": "BUKA",
+      "acid_pump": false,
+      "base_pump": false,
+      "mixer": false
+    },
+    "plant2": {
+      "level_pct": 55.9,
+      "level_liter": 5.10,
+      "flow_lpm": 0.00,
+      "fresh": true,
+      "valve_main": "BUKA",
+      "valve_failsafe": "TUTUP"
+    },
+    "alarms": {
+      "ph": "NORMAL",
+      "level": "NORMAL",
+      "flow": "FAULT",
+      "maintenance": false
+    }
+  },
+  "data_quality_observations": [
+    "Sensor level Plant1 sering mengirim nilai negatif (-1.0) yang ditandai status 'Fault' - menunjukkan kemungkinan sensor ultrasonik/level kehilangan pembacaan secara intermiten.",
+    "Sensor pH Plant1 mengalami lonjakan ekstrem dan tidak fisis (dari 7.4 ke >10 dalam beberapa detik lalu turun kembali bertahap) - pola ini lebih konsisten dengan gangguan elektris/noise probe pH dibanding reaksi kimia aktual.",
+    "Flow sensor Plant2 konsisten melaporkan 0.00 L/min meski valve utama dalam posisi BUKA selama periode distribusi panjang - mengindikasikan kemungkinan tidak ada pompa transfer aktif, sensor flow rusak, atau pipa tersumbat/kosong.",
+    "Koneksi WiFi dan MQTT tetap stabil (status OK) sepanjang log meski terjadi banyak data sensor stale - masalah berasal dari sisi node sensor Plant1/Plant2, bukan dari MTU itu sendiri.",
+    "Buffer offline snapshot bertambah teratur (~setiap 30 detik) menunjukkan loop utama MTU berjalan normal sepanjang durasi log yang tercakup (~14-15 menit operasi, buffer 0 hingga 29 dari maksimum 60)."
+  ]
+}

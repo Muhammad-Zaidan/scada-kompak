@@ -1,15 +1,15 @@
 [
     {
-        "id": "tab_plant1",
+        "id": "7ec7738dc8078a6d",
         "type": "tab",
         "label": "Plant 1&2 — WWTP SCADA",
         "disabled": false,
         "info": ""
     },
     {
-        "id": "mqtt_in_ph",
+        "id": "6d22474acdb02e9d",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/plant1/ph",
         "topic": "wwtp/plant1/ph",
         "qos": "1",
@@ -23,14 +23,14 @@
         "y": 140,
         "wires": [
             [
-                "json_parse_ph"
+                "5c0edf6a1b54b18f"
             ]
         ]
     },
     {
-        "id": "json_parse_ph",
+        "id": "5c0edf6a1b54b18f",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -39,14 +39,14 @@
         "y": 140,
         "wires": [
             [
-                "validate_ph"
+                "eb5d058fd18f394c"
             ]
         ]
     },
     {
-        "id": "validate_ph",
+        "id": "eb5d058fd18f394c",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate & Transform pH",
         "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); }\n  catch (e) { node.warn('JSON parse error: ' + e); return null; }\n}\n\nconst required = ['plant_id', 'sensor_type', 'value', 'unit', 'status'];\nfor (const f of required) {\n  if (p[f] === undefined) { node.warn('Missing: ' + f); return null; }\n}\n\nmsg.payload = {\n  plant_id:    p.plant_id,\n  sensor_type: p.sensor_type,\n  value:       parseFloat(p.value),\n  unit:        p.unit,\n  status:      p.status,\n  is_manual:   Boolean(p.is_manual)\n};\n\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDA2MzUsImV4cCI6MjA4ODc3NjYzNX0.GdQ2J2jxSQXdTB0fAbUiSvemnLJeCSU7W3geHPsBQ2g\";\n\nmsg.headers = {\n  'Content-Type':  'application/json',\n  'Authorization': 'Bearer ' + SUPABASE_KEY,\n  'apikey':        SUPABASE_KEY,\n  'Prefer':        'return=minimal'\n};\n\nnode.warn('SENDING pH: ' + JSON.stringify(msg.payload));\nreturn msg;",
         "outputs": 1,
@@ -59,14 +59,14 @@
         "y": 140,
         "wires": [
             [
-                "supabase_ph"
+                "dcd6d084e0909d4d"
             ]
         ]
     },
     {
-        "id": "supabase_ph",
+        "id": "dcd6d084e0909d4d",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT sensor_readings",
         "method": "POST",
         "ret": "txt",
@@ -83,14 +83,14 @@
         "y": 140,
         "wires": [
             [
-                "response_ph"
+                "587618727cb82783"
             ]
         ]
     },
     {
-        "id": "response_ph",
+        "id": "587618727cb82783",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response pH",
         "active": true,
         "tosidebar": true,
@@ -105,9 +105,9 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_level",
+        "id": "4469fa5138b7c4fb",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/plant1/level",
         "topic": "wwtp/plant1/level",
         "qos": "1",
@@ -121,14 +121,14 @@
         "y": 200,
         "wires": [
             [
-                "json_parse_level"
+                "11ee41b16e498a69"
             ]
         ]
     },
     {
-        "id": "json_parse_level",
+        "id": "11ee41b16e498a69",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -137,14 +137,14 @@
         "y": 200,
         "wires": [
             [
-                "validate_level"
+                "c4a4dc2849dcf307"
             ]
         ]
     },
     {
-        "id": "validate_level",
+        "id": "c4a4dc2849dcf307",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate & Transform Level",
         "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); }\n  catch (e) { node.warn('JSON parse error: ' + e); return null; }\n}\n\nconst required = ['plant_id', 'sensor_type', 'value_cm', 'value_pct', 'value_liter'];\nfor (const f of required) {\n  if (p[f] === undefined) { node.warn('Missing: ' + f); return null; }\n}\n\nmsg.payload = {\n  plant_id:    p.plant_id,\n  value_cm:    parseFloat(p.value_cm),\n  value_pct:   parseFloat(p.value_pct),\n  value_liter: parseFloat(p.value_liter),\n  unit:        p.unit,\n  status:      p.status\n};\n\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDA2MzUsImV4cCI6MjA4ODc3NjYzNX0.GdQ2J2jxSQXdTB0fAbUiSvemnLJeCSU7W3geHPsBQ2g\";\n\nmsg.headers = {\n  'Content-Type':  'application/json',\n  'Authorization': 'Bearer ' + SUPABASE_KEY,\n  'apikey':        SUPABASE_KEY,\n  'Prefer':        'return=minimal'\n};\n\nnode.warn('SENDING level: ' + JSON.stringify(msg.payload));\nreturn msg;",
         "outputs": 1,
@@ -157,14 +157,14 @@
         "y": 200,
         "wires": [
             [
-                "supabase_level"
+                "cfda250cf2ed772b"
             ]
         ]
     },
     {
-        "id": "response_level",
+        "id": "bdb754a78b648891",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Level",
         "active": true,
         "tosidebar": true,
@@ -179,9 +179,9 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_valve_state",
+        "id": "b5d1605afa59bb6f",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/plant1/valve/state",
         "topic": "wwtp/plant1/valve/state",
         "qos": "1",
@@ -195,14 +195,14 @@
         "y": 260,
         "wires": [
             [
-                "json_parse_valve"
+                "7dd2f5d542b5f94f"
             ]
         ]
     },
     {
-        "id": "json_parse_valve",
+        "id": "7dd2f5d542b5f94f",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -211,14 +211,14 @@
         "y": 260,
         "wires": [
             [
-                "validate_valve"
+                "5136980db0b27c99"
             ]
         ]
     },
     {
-        "id": "validate_valve",
+        "id": "5136980db0b27c99",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate & Transform Valve",
         "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); }\n  catch (e) { node.warn('JSON parse error: ' + e); return null; }\n}\n\nmsg.payload = {\n  plant_id: p.plant_id,\n  device:   p.device   || 'solenoid_valve',\n  state:    p.state    || 'UNKNOWN',\n  mode:     p.mode     || 'UNKNOWN'\n};\n\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDA2MzUsImV4cCI6MjA4ODc3NjYzNX0.GdQ2J2jxSQXdTB0fAbUiSvemnLJeCSU7W3geHPsBQ2g\";\n\nmsg.headers = {\n  'Content-Type':  'application/json',\n  'Authorization': 'Bearer ' + SUPABASE_KEY,\n  'apikey':        SUPABASE_KEY,\n  'Prefer':        'return=minimal'\n};\n\nreturn msg;",
         "outputs": 1,
@@ -231,14 +231,14 @@
         "y": 260,
         "wires": [
             [
-                "supabase_valve"
+                "54b00fca8009e2b1"
             ]
         ]
     },
     {
-        "id": "supabase_valve",
+        "id": "54b00fca8009e2b1",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT valve_log",
         "method": "POST",
         "ret": "txt",
@@ -255,14 +255,14 @@
         "y": 260,
         "wires": [
             [
-                "response_valve"
+                "21f4818b8ee43ccd"
             ]
         ]
     },
     {
-        "id": "response_valve",
+        "id": "21f4818b8ee43ccd",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Valve",
         "active": true,
         "tosidebar": true,
@@ -277,9 +277,9 @@
         "wires": []
     },
     {
-        "id": "http_in_valve_cmd",
+        "id": "79643d73a150d2c6",
         "type": "http in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "POST /valve/cmd",
         "url": "/valve/cmd",
         "method": "post",
@@ -289,14 +289,14 @@
         "y": 400,
         "wires": [
             [
-                "build_valve_cmd"
+                "3388f4422f06e5c6"
             ]
         ]
     },
     {
-        "id": "build_valve_cmd",
+        "id": "3388f4422f06e5c6",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Build Valve Command",
         "func": "// Terima: { mode: 'AUTO'|'MANUAL', state: 'OPEN'|'CLOSED' }\nconst body = msg.payload;\n\nif (!body.mode) {\n  msg.payload = { error: 'mode diperlukan (AUTO atau MANUAL)' };\n  msg.statusCode = 400;\n  return [null, msg];\n}\n\nconst cmd = { mode: body.mode };\nif (body.mode === 'MANUAL') {\n  if (!body.state) {\n    msg.payload = { error: 'state diperlukan saat mode MANUAL (OPEN atau CLOSED)' };\n    msg.statusCode = 400;\n    return [null, msg];\n  }\n  cmd.state = body.state;\n}\n\nmsg.payload = JSON.stringify(cmd);\nmsg.topic   = 'wwtp/plant1/valve/cmd';\nreturn [msg, null];",
         "outputs": 2,
@@ -309,17 +309,17 @@
         "y": 400,
         "wires": [
             [
-                "mqtt_out_valve_cmd"
+                "79594f906ae152ec"
             ],
             [
-                "http_response_error"
+                "4ff75505e4664377"
             ]
         ]
     },
     {
-        "id": "mqtt_out_valve_cmd",
+        "id": "79594f906ae152ec",
         "type": "mqtt out",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Publish wwtp/plant1/valve/cmd",
         "topic": "wwtp/plant1/valve/cmd",
         "qos": "1",
@@ -335,9 +335,9 @@
         "wires": []
     },
     {
-        "id": "http_response_ok",
+        "id": "3b5dc4b47dfa1cb2",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 200 OK",
         "statusCode": "200",
         "headers": {},
@@ -346,9 +346,9 @@
         "wires": []
     },
     {
-        "id": "http_response_error",
+        "id": "4ff75505e4664377",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 400 Error",
         "statusCode": "400",
         "headers": {},
@@ -357,9 +357,9 @@
         "wires": []
     },
     {
-        "id": "inject_ok_response",
+        "id": "c246eeea62167a38",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Set OK Response",
         "func": "msg.payload = { success: true, message: 'Command dikirim ke ESP32' };\nreturn msg;",
         "outputs": 1,
@@ -371,14 +371,14 @@
         "y": 480,
         "wires": [
             [
-                "http_response_ok"
+                "3b5dc4b47dfa1cb2"
             ]
         ]
     },
     {
-        "id": "supabase_level",
+        "id": "cfda250cf2ed772b",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT level_readings",
         "method": "POST",
         "ret": "txt",
@@ -395,14 +395,14 @@
         "y": 200,
         "wires": [
             [
-                "response_level"
+                "bdb754a78b648891"
             ]
         ]
     },
     {
-        "id": "mqtt_in_alert",
+        "id": "76f6adbf9eb47473",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/alert",
         "topic": "wwtp/alert",
         "qos": "1",
@@ -415,14 +415,14 @@
         "y": 320,
         "wires": [
             [
-                "json_parse_alert"
+                "d4f0071fc2a35280"
             ]
         ]
     },
     {
-        "id": "json_parse_alert",
+        "id": "d4f0071fc2a35280",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -431,14 +431,14 @@
         "y": 320,
         "wires": [
             [
-                "validate_alert"
+                "68cf1df47f63472b"
             ]
         ]
     },
     {
-        "id": "validate_alert",
+        "id": "68cf1df47f63472b",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate & Transform Alert",
         "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); }\n  catch (e) { node.warn('JSON parse error: ' + e); return null; }\n}\n\nmsg.payload = {\n  plant_id: p.plant_id || 'unknown',\n  code:     p.code    || 'UNKNOWN',\n  message:  p.message || '',\n  valve:    p.valve   || 'UNKNOWN'\n};\n\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDA2MzUsImV4cCI6MjA4ODc3NjYzNX0.GdQ2J2jxSQXdTB0fAbUiSvemnLJeCSU7W3geHPsBQ2g\";\n\nmsg.headers = {\n  'Content-Type':  'application/json',\n  'Authorization': 'Bearer ' + SUPABASE_KEY,\n  'apikey':        SUPABASE_KEY,\n  'Prefer':        'return=minimal'\n};\n\nnode.warn('ALERT: ' + JSON.stringify(msg.payload));\nreturn msg;",
         "outputs": 1,
@@ -451,14 +451,14 @@
         "y": 320,
         "wires": [
             [
-                "supabase_alert"
+                "452b67e74961d252"
             ]
         ]
     },
     {
-        "id": "supabase_alert",
+        "id": "452b67e74961d252",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT alert_log",
         "method": "POST",
         "ret": "txt",
@@ -475,14 +475,14 @@
         "y": 320,
         "wires": [
             [
-                "debug_alert"
+                "a3603f0a2097f5e3"
             ]
         ]
     },
     {
-        "id": "debug_alert",
+        "id": "a3603f0a2097f5e3",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Alert",
         "active": true,
         "tosidebar": true,
@@ -497,9 +497,9 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_p2_level",
+        "id": "8fab95dea33126d2",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/plant2/level",
         "topic": "wwtp/plant2/level",
         "qos": "1",
@@ -512,14 +512,14 @@
         "y": 540,
         "wires": [
             [
-                "json_p2_level"
+                "4d68bb0b89c573a4"
             ]
         ]
     },
     {
-        "id": "json_p2_level",
+        "id": "4d68bb0b89c573a4",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -528,14 +528,14 @@
         "y": 540,
         "wires": [
             [
-                "validate_p2_level"
+                "6f23ed096b723865"
             ]
         ]
     },
     {
-        "id": "validate_p2_level",
+        "id": "6f23ed096b723865",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate & Transform Level P2",
         "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); } catch (e) { node.warn('JSON error: ' + e); return null; }\n}\nconst required = ['plant_id','value_cm','value_pct','value_liter'];\nfor (const f of required) { if (p[f] === undefined) { node.warn('Missing: ' + f); return null; } }\nmsg.payload = {\n  plant_id:    p.plant_id,\n  value_cm:    parseFloat(p.value_cm),\n  value_pct:   parseFloat(p.value_pct),\n  value_liter: parseFloat(p.value_liter),\n  unit:        p.unit || 'cm',\n  status:      p.status || 'Unknown'\n};\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzIwMDYzNSwiZXhwIjoyMDg4Nzc2NjM1fQ.LMRFnOmPI42g_yFy1Z_q0wrrpQIY_qyTevZHSE5YUs0\";\nmsg.headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY, 'Prefer': 'return=minimal' };\nreturn msg;",
         "outputs": 1,
@@ -548,14 +548,14 @@
         "y": 540,
         "wires": [
             [
-                "supabase_p2_level"
+                "3f5e68785d7b1dde"
             ]
         ]
     },
     {
-        "id": "supabase_p2_level",
+        "id": "3f5e68785d7b1dde",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT level_readings",
         "method": "POST",
         "ret": "txt",
@@ -572,14 +572,14 @@
         "y": 540,
         "wires": [
             [
-                "debug_p2_level"
+                "6ed2c9c825d57a57"
             ]
         ]
     },
     {
-        "id": "debug_p2_level",
+        "id": "6ed2c9c825d57a57",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Level P2",
         "active": true,
         "tosidebar": true,
@@ -592,9 +592,9 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_p2_flow",
+        "id": "593a09b05b7a2c51",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/plant2/flow",
         "topic": "wwtp/plant2/flow",
         "qos": "1",
@@ -607,14 +607,14 @@
         "y": 600,
         "wires": [
             [
-                "json_p2_flow"
+                "fb87543828ab15dd"
             ]
         ]
     },
     {
-        "id": "json_p2_flow",
+        "id": "fb87543828ab15dd",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -623,14 +623,14 @@
         "y": 600,
         "wires": [
             [
-                "validate_p2_flow"
+                "4be6958f999cb730"
             ]
         ]
     },
     {
-        "id": "validate_p2_flow",
+        "id": "4be6958f999cb730",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate & Transform Flow P2",
         "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); } catch (e) { node.warn('JSON error: ' + e); return null; }\n}\nmsg.payload = {\n  plant_id: p.plant_id || 'plant2',\n  value:    parseFloat(p.value),\n  unit:     p.unit || 'L/min',\n  status:   p.status || 'Unknown'\n};\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzIwMDYzNSwiZXhwIjoyMDg4Nzc2NjM1fQ.LMRFnOmPI42g_yFy1Z_q0wrrpQIY_qyTevZHSE5YUs0\";\nmsg.headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY, 'Prefer': 'return=minimal' };\nreturn msg;",
         "outputs": 1,
@@ -643,14 +643,14 @@
         "y": 600,
         "wires": [
             [
-                "supabase_p2_flow"
+                "fca0d306c03bbccd"
             ]
         ]
     },
     {
-        "id": "supabase_p2_flow",
+        "id": "fca0d306c03bbccd",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT flow_readings",
         "method": "POST",
         "ret": "txt",
@@ -667,14 +667,14 @@
         "y": 600,
         "wires": [
             [
-                "debug_p2_flow"
+                "dd814e343c7be9ae"
             ]
         ]
     },
     {
-        "id": "debug_p2_flow",
+        "id": "dd814e343c7be9ae",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Flow P2",
         "active": true,
         "tosidebar": true,
@@ -687,9 +687,9 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_p2_valve_main",
+        "id": "b0e3f8338ae6e16b",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/plant2/valve/main/state",
         "topic": "wwtp/plant2/valve/main/state",
         "qos": "1",
@@ -702,14 +702,14 @@
         "y": 660,
         "wires": [
             [
-                "json_p2_valve_main"
+                "5110bf846aa6bfe4"
             ]
         ]
     },
     {
-        "id": "json_p2_valve_main",
+        "id": "5110bf846aa6bfe4",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -718,14 +718,14 @@
         "y": 660,
         "wires": [
             [
-                "validate_p2_valve_main"
+                "04373c071516f527"
             ]
         ]
     },
     {
-        "id": "validate_p2_valve_main",
+        "id": "04373c071516f527",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate Valve Main P2",
         "func": "let p = msg.payload;\nif (typeof p === 'string') { try { p = JSON.parse(p); } catch(e) { return null; } }\nmsg.payload = { plant_id: p.plant_id || 'plant2', device: p.device || 'main_valve', state: p.state || 'UNKNOWN', mode: p.mode || 'UNKNOWN' };\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzIwMDYzNSwiZXhwIjoyMDg4Nzc2NjM1fQ.LMRFnOmPI42g_yFy1Z_q0wrrpQIY_qyTevZHSE5YUs0\";\nmsg.headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY, 'Prefer': 'return=minimal' };\nreturn msg;",
         "outputs": 1,
@@ -738,14 +738,14 @@
         "y": 660,
         "wires": [
             [
-                "supabase_p2_valve_main"
+                "8a9e263961ba7a13"
             ]
         ]
     },
     {
-        "id": "supabase_p2_valve_main",
+        "id": "8a9e263961ba7a13",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT valve_log",
         "method": "POST",
         "ret": "txt",
@@ -762,14 +762,14 @@
         "y": 660,
         "wires": [
             [
-                "debug_p2_valve_main"
+                "61597da0fc3cc16b"
             ]
         ]
     },
     {
-        "id": "debug_p2_valve_main",
+        "id": "61597da0fc3cc16b",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Valve Main P2",
         "active": true,
         "tosidebar": true,
@@ -782,9 +782,9 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_p2_valve_fs",
+        "id": "d9a9c95027ddbc43",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/plant2/valve/failsafe/state",
         "topic": "wwtp/plant2/valve/failsafe/state",
         "qos": "1",
@@ -797,14 +797,14 @@
         "y": 720,
         "wires": [
             [
-                "json_p2_valve_fs"
+                "5eddb024d5b1afa4"
             ]
         ]
     },
     {
-        "id": "json_p2_valve_fs",
+        "id": "5eddb024d5b1afa4",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -813,14 +813,14 @@
         "y": 720,
         "wires": [
             [
-                "validate_p2_valve_fs"
+                "9e23407d4e3648fc"
             ]
         ]
     },
     {
-        "id": "validate_p2_valve_fs",
+        "id": "9e23407d4e3648fc",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate Valve FS P2",
         "func": "let p = msg.payload;\nif (typeof p === 'string') { try { p = JSON.parse(p); } catch(e) { return null; } }\nmsg.payload = { plant_id: p.plant_id || 'plant2', device: p.device || 'failsafe_valve', state: p.state || 'UNKNOWN', mode: p.mode || 'UNKNOWN' };\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzIwMDYzNSwiZXhwIjoyMDg4Nzc2NjM1fQ.LMRFnOmPI42g_yFy1Z_q0wrrpQIY_qyTevZHSE5YUs0\";\nmsg.headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY, 'apikey': SUPABASE_KEY, 'Prefer': 'return=minimal' };\nreturn msg;",
         "outputs": 1,
@@ -833,14 +833,14 @@
         "y": 720,
         "wires": [
             [
-                "supabase_p2_valve_fs"
+                "70c187414f6b3d80"
             ]
         ]
     },
     {
-        "id": "supabase_p2_valve_fs",
+        "id": "70c187414f6b3d80",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT valve_log",
         "method": "POST",
         "ret": "txt",
@@ -857,14 +857,14 @@
         "y": 720,
         "wires": [
             [
-                "debug_p2_valve_fs"
+                "330ecd5658d96e3f"
             ]
         ]
     },
     {
-        "id": "debug_p2_valve_fs",
+        "id": "330ecd5658d96e3f",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Valve FS P2",
         "active": true,
         "tosidebar": true,
@@ -877,9 +877,9 @@
         "wires": []
     },
     {
-        "id": "http_in_p2_main_cmd",
+        "id": "26c30cb4c17e8f03",
         "type": "http in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "POST /plant2/valve/main/cmd",
         "url": "/plant2/valve/main/cmd",
         "method": "post",
@@ -889,14 +889,14 @@
         "y": 800,
         "wires": [
             [
-                "build_p2_main_cmd"
+                "3b70b5eec07a1cd6"
             ]
         ]
     },
     {
-        "id": "build_p2_main_cmd",
+        "id": "3b70b5eec07a1cd6",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Build Main Cmd",
         "func": "const body = msg.payload;\nif (!body.mode) { msg.payload = { error: 'mode diperlukan' }; msg.statusCode = 400; return [null, msg]; }\nconst cmd = { mode: body.mode };\nif (body.mode === 'MANUAL') { if (!body.state) { msg.payload = { error: 'state diperlukan' }; msg.statusCode = 400; return [null, msg]; } cmd.state = body.state; }\nmsg.payload = JSON.stringify(cmd);\nmsg.topic = 'wwtp/plant2/valve/main/cmd';\nmsg.statusCode = 200;\nreturn [msg, null];",
         "outputs": 2,
@@ -909,18 +909,18 @@
         "y": 800,
         "wires": [
             [
-                "mqtt_out_p2_main",
-                "http_res_p2_ok_main"
+                "cde85b9380ec2e26",
+                "e64841ca98918d8f"
             ],
             [
-                "http_res_p2_err_main"
+                "f0e81b7120f25e87"
             ]
         ]
     },
     {
-        "id": "mqtt_out_p2_main",
+        "id": "cde85b9380ec2e26",
         "type": "mqtt out",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Publish plant2/valve/main/cmd",
         "topic": "wwtp/plant2/valve/main/cmd",
         "qos": "1",
@@ -931,9 +931,9 @@
         "wires": []
     },
     {
-        "id": "http_res_p2_ok_main",
+        "id": "e64841ca98918d8f",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 200",
         "statusCode": "200",
         "headers": {
@@ -944,9 +944,9 @@
         "wires": []
     },
     {
-        "id": "http_res_p2_err_main",
+        "id": "f0e81b7120f25e87",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 400",
         "statusCode": "400",
         "headers": {
@@ -957,9 +957,9 @@
         "wires": []
     },
     {
-        "id": "http_in_p2_fs_cmd",
+        "id": "14b2d10d18162268",
         "type": "http in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "POST /plant2/valve/failsafe/cmd",
         "url": "/plant2/valve/failsafe/cmd",
         "method": "post",
@@ -969,14 +969,14 @@
         "y": 800,
         "wires": [
             [
-                "build_p2_fs_cmd"
+                "4163d9d8f38268b3"
             ]
         ]
     },
     {
-        "id": "build_p2_fs_cmd",
+        "id": "4163d9d8f38268b3",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Build FS Cmd",
         "func": "const body = msg.payload;\nif (!body.mode) { msg.payload = { error: 'mode diperlukan' }; msg.statusCode = 400; return [null, msg]; }\nconst cmd = { mode: body.mode };\nif (body.mode === 'MANUAL') { if (!body.state) { msg.payload = { error: 'state diperlukan' }; msg.statusCode = 400; return [null, msg]; } cmd.state = body.state; }\nmsg.payload = JSON.stringify(cmd);\nmsg.topic = 'wwtp/plant2/valve/failsafe/cmd';\nmsg.statusCode = 200;\nreturn [msg, null];",
         "outputs": 2,
@@ -989,18 +989,18 @@
         "y": 800,
         "wires": [
             [
-                "mqtt_out_p2_fs",
-                "http_res_p2_ok_fs"
+                "a33dd9d7796bc927",
+                "43d4fae22274a877"
             ],
             [
-                "http_res_p2_err_fs"
+                "539b78f74b5f973c"
             ]
         ]
     },
     {
-        "id": "mqtt_out_p2_fs",
+        "id": "a33dd9d7796bc927",
         "type": "mqtt out",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Publish plant2/valve/failsafe/cmd",
         "topic": "wwtp/plant2/valve/failsafe/cmd",
         "qos": "1",
@@ -1011,9 +1011,9 @@
         "wires": []
     },
     {
-        "id": "http_res_p2_ok_fs",
+        "id": "43d4fae22274a877",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 200",
         "statusCode": "200",
         "headers": {
@@ -1024,9 +1024,9 @@
         "wires": []
     },
     {
-        "id": "http_res_p2_err_fs",
+        "id": "539b78f74b5f973c",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 400",
         "statusCode": "400",
         "headers": {
@@ -1037,9 +1037,9 @@
         "wires": []
     },
     {
-        "id": "mqtt_in_p1_dosing",
+        "id": "8aec826e9f9d22f2",
         "type": "mqtt in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Subscribe wwtp/mtu/dosing/state",
         "topic": "wwtp/mtu/dosing/state",
         "qos": "1",
@@ -1052,14 +1052,14 @@
         "y": 960,
         "wires": [
             [
-                "json_p1_dosing"
+                "cd8784fa4fa29dca"
             ]
         ]
     },
     {
-        "id": "json_p1_dosing",
+        "id": "cd8784fa4fa29dca",
         "type": "json",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "JSON Parse",
         "property": "payload",
         "action": "obj",
@@ -1068,14 +1068,14 @@
         "y": 960,
         "wires": [
             [
-                "validate_p1_dosing"
+                "4060f97d6f31d1ae"
             ]
         ]
     },
     {
-        "id": "validate_p1_dosing",
+        "id": "4060f97d6f31d1ae",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Validate & Transform Dosing",
         "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); } catch(e) { node.warn('JSON error: ' + e); return null; }\n}\nmsg.payload = {\n  plant_id:     p.plant_id     || 'mtu',\n  status:       p.status       || 'UNKNOWN',\n  cycle:        parseInt(p.cycle) || 0,\n  target_ml:    parseFloat(p.target_ml)    || 0,\n  delivered_ml: parseFloat(p.delivered_ml) || 0,\n  pump_base:    Boolean(p.pump_base),\n  pump_acid:    Boolean(p.pump_acid),\n  stirrer:      Boolean(p.stirrer)\n};\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzIwMDYzNSwiZXhwIjoyMDg4Nzc2NjM1fQ.LMRFnOmPI42g_yFy1Z_q0wrrpQIY_qyTevZHSE5YUs0\";\nmsg.headers = {\n  'Content-Type':  'application/json',\n  'Authorization': 'Bearer ' + SUPABASE_KEY,\n  'apikey':        SUPABASE_KEY,\n  'Prefer':        'return=minimal'\n};\nreturn msg;",
         "outputs": 1,
@@ -1088,14 +1088,14 @@
         "y": 960,
         "wires": [
             [
-                "supabase_p1_dosing"
+                "8c8d7c9f9051c9a4"
             ]
         ]
     },
     {
-        "id": "supabase_p1_dosing",
+        "id": "8c8d7c9f9051c9a4",
         "type": "http request",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Supabase INSERT dosing_log",
         "method": "POST",
         "ret": "txt",
@@ -1112,14 +1112,14 @@
         "y": 960,
         "wires": [
             [
-                "debug_p1_dosing"
+                "39cef9f83f5bd874"
             ]
         ]
     },
     {
-        "id": "debug_p1_dosing",
+        "id": "39cef9f83f5bd874",
         "type": "debug",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Response Dosing",
         "active": true,
         "tosidebar": true,
@@ -1132,9 +1132,9 @@
         "wires": []
     },
     {
-        "id": "http_in_dosing_cmd",
+        "id": "625330410f165865",
         "type": "http in",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "POST /plant1/actuator/cmd",
         "url": "/plant1/actuator/cmd",
         "method": "post",
@@ -1144,14 +1144,14 @@
         "y": 1080,
         "wires": [
             [
-                "build_dosing_cmd"
+                "43bc3b8bfd895174"
             ]
         ]
     },
     {
-        "id": "build_dosing_cmd",
+        "id": "43bc3b8bfd895174",
         "type": "function",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Build Actuator Command",
         "func": "const body = msg.payload;\nif (!body.device || !body.cmd) {\n  msg.payload = { error: 'device (acid, base, mixer) dan cmd (ON, OFF) diperlukan' };\n  msg.statusCode = 400;\n  return [null, msg];\n}\n\nlet subtopic = '';\nif (body.device === 'acid') subtopic = 'dosing/acid/cmd';\nelse if (body.device === 'base') subtopic = 'dosing/base/cmd';\nelse if (body.device === 'mixer') subtopic = 'mixer/cmd';\nelse {\n  msg.payload = { error: 'device tidak dikenal' };\n  msg.statusCode = 400;\n  return [null, msg];\n}\n\nmsg.payload = JSON.stringify({ cmd: body.cmd });\nmsg.topic   = 'wwtp/plant1/' + subtopic;\nmsg.statusCode = 200;\nreturn [msg, null];",
         "outputs": 2,
@@ -1164,18 +1164,18 @@
         "y": 1080,
         "wires": [
             [
-                "mqtt_out_dosing_cmd",
-                "http_res_dosing_ok"
+                "9dadaf9a230b8c7a",
+                "b029746329a3fa12"
             ],
             [
-                "http_res_dosing_err"
+                "955210d988c9ca0e"
             ]
         ]
     },
     {
-        "id": "mqtt_out_dosing_cmd",
+        "id": "9dadaf9a230b8c7a",
         "type": "mqtt out",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "Publish wwtp/plant1/*/cmd",
         "topic": "",
         "qos": "1",
@@ -1186,9 +1186,9 @@
         "wires": []
     },
     {
-        "id": "http_res_dosing_ok",
+        "id": "b029746329a3fa12",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 200",
         "statusCode": "200",
         "headers": {
@@ -1199,9 +1199,9 @@
         "wires": []
     },
     {
-        "id": "http_res_dosing_err",
+        "id": "955210d988c9ca0e",
         "type": "http response",
-        "z": "tab_plant1",
+        "z": "7ec7738dc8078a6d",
         "name": "HTTP 400",
         "statusCode": "400",
         "headers": {
@@ -1209,6 +1209,104 @@
         },
         "x": 690,
         "y": 1140,
+        "wires": []
+    },
+    {
+        "id": "mqtt_in_test",
+        "type": "mqtt in",
+        "z": "7ec7738dc8078a6d",
+        "name": "Subscribe wwtp/test",
+        "topic": "wwtp/test",
+        "qos": "1",
+        "datatype": "auto",
+        "broker": "7f9f94c67c1a0679",
+        "nl": false,
+        "rap": false,
+        "rh": 0,
+        "inputs": 0,
+        "x": 130,
+        "y": 60,
+        "wires": [
+            [
+                "json_parse_test"
+            ]
+        ]
+    },
+    {
+        "id": "json_parse_test",
+        "type": "json",
+        "z": "7ec7738dc8078a6d",
+        "name": "JSON Parse",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 330,
+        "y": 60,
+        "wires": [
+            [
+                "validate_test"
+            ]
+        ]
+    },
+    {
+        "id": "validate_test",
+        "type": "function",
+        "z": "7ec7738dc8078a6d",
+        "name": "Format Test to Supabase",
+        "func": "let p = msg.payload;\nif (typeof p === 'string') {\n  try { p = JSON.parse(p); }\n  catch (e) { node.warn('JSON parse error: ' + e); return null; }\n}\n\nmsg.payload = {\n  message: p.message || 'No message provided'\n};\n\nconst SUPABASE_KEY = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydHJqZGxneml4dG5qd3pzZmpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMDA2MzUsImV4cCI6MjA4ODc3NjYzNX0.GdQ2J2jxSQXdTB0fAbUiSvemnLJeCSU7W3geHPsBQ2g\";\n\nmsg.headers = {\n  'Content-Type':  'application/json',\n  'Authorization': 'Bearer ' + SUPABASE_KEY,\n  'apikey':        SUPABASE_KEY,\n  'Prefer':        'return=minimal'\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 530,
+        "y": 60,
+        "wires": [
+            [
+                "supabase_test"
+            ]
+        ]
+    },
+    {
+        "id": "supabase_test",
+        "type": "http request",
+        "z": "7ec7738dc8078a6d",
+        "name": "Supabase INSERT test",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "https://yrtrjdlgzixtnjwzsfjj.supabase.co/rest/v1/test",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 770,
+        "y": 60,
+        "wires": [
+            [
+                "response_test"
+            ]
+        ]
+    },
+    {
+        "id": "response_test",
+        "type": "debug",
+        "z": "7ec7738dc8078a6d",
+        "name": "Response Test",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1000,
+        "y": 60,
         "wires": []
     },
     {
